@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}IT & equipment{% endblock %}
+{% block content %}
+{{ ui.page_header('IT & equipment requests', 'Laptops, accounts and access for new hires.', [('Dashboard', url_for('main.dashboard')), ('IT & equipment', None)]) }}
+<div class="card">
+  <div class="card-header"><form class="d-flex gap-2 align-items-center" method="get">
+    <label class="small-muted" for="it-status">Status</label>
+    <select class="form-select form-select-sm w-auto" id="it-status" name="status" data-autosubmit><option value="">All</option>
+      {% for s in statuses %}<option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s|humanize }}</option>{% endfor %}</select>
+    <noscript><button class="btn btn-sm btn-light">Filter</button></noscript></form></div>
+  {% if page.items %}
+  <div class="table-responsive"><table class="table align-middle">
+    <thead><tr><th>Request</th><th>Employee</th><th>Raised</th><th>Status</th><th style="min-width:300px">Action</th></tr></thead>
+    <tbody>{% for r in page.items %}
+      <tr><td><div class="fw-semibold">{{ r.request_type|humanize }}</div><div class="small-muted">{{ r.details }}</div>{% if r.notes %}<div class="small">Note: {{ r.notes }}</div>{% endif %}</td>
+        <td><a class="row-link" href="{{ url_for('employees.profile', employee_id=r.employee_id) }}">{{ r.employee.user.full_name }}</a><div class="small-muted">Joins {{ r.employee.joining_date|date }}</div></td>
+        <td class="small-muted">{{ r.created_at|dt }}</td>
+        <td>{{ ui.status(r.status) }}</td>
+        <td>{% set nexts = transitions.get(r.status, []) %}
+          {% if nexts %}
+          <form method="post" action="{{ url_for('onboarding.update_it_request', req_id=r.id) }}" class="d-flex flex-wrap gap-1">{{ ui.csrf() }}
+            <label class="visually-hidden" for="itn-{{ r.id }}">Note</label>
+            <input class="form-control form-control-sm" style="max-width:150px" id="itn-{{ r.id }}" name="notes" maxlength="500" placeholder="Note (optional)">
+            {% for s in ('approved', 'fulfilled', 'rejected', 'requested') if s in nexts %}
+              <button class="btn btn-sm {{ {'approved': 'btn-light', 'fulfilled': 'btn-success', 'rejected': 'btn-outline-danger', 'requested': 'btn-light'}[s] }}" name="status" value="{{ s }}" data-loading>{{ {'approved': 'Approve', 'fulfilled': 'Fulfilled', 'rejected': 'Reject', 'requested': 'Reopen'}[s] }}</button>
+            {% endfor %}
+          </form>
+          {% else %}<span class="small-muted">Closed {{ r.handled_at|date }}</span>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {{ ui.pagination(page, 'onboarding.it_requests') }}
+  {% else %}{{ ui.empty('bi-laptop', 'No requests', 'IT and equipment requests are created from onboarding templates, by HR, or by employees in their portal.') }}{% endif %}
+</div>
+{% endblock %}

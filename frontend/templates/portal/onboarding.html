@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}My onboarding{% endblock %}
+{% block content %}
+{% set p = emp.onboarding_progress %}
+{% call ui.page_header('Welcome, ' ~ emp.user.full_name.split(' ')[0] ~ '!', 'Your onboarding checklist for ' ~ emp.designation ~ ', ' ~ emp.department.name ~ '.', [('My onboarding', None)]) %}
+  {{ ui.status(emp.employment_status, emp.status_label) }}
+{% endcall %}
+
+<div class="card mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-4">
+  <div style="min-width:220px" class="flex-grow-1">
+    <div class="d-flex justify-content-between small mb-1"><span class="fw-semibold">Overall progress</span><span>{{ p }}%</span></div>
+    <div class="progress" role="progressbar" aria-label="Onboarding progress" aria-valuenow="{{ p }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ p }}%"></div></div>
+  </div>
+  <div class="small"><div class="small-muted">Joining date</div><div class="fw-semibold">{{ emp.joining_date|date }}</div></div>
+  <div class="small"><div class="small-muted">Manager</div><div class="fw-semibold">{{ emp.manager.full_name if emp.manager else 'To be assigned' }}</div></div>
+  <div class="small"><div class="small-muted">Employee ID</div><div class="fw-semibold"><code>{{ emp.employee_code }}</code></div></div>
+</div></div>
+
+<div class="row g-3">
+  <div class="col-xl-8 d-grid gap-3 align-content-start">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-check me-1"></i>Your tasks</div>
+      {% if my_tasks %}
+      <ul class="list-group list-group-flush">
+        {% for t in my_tasks %}
+        {% set overdue = t.status != 'completed' and t.due_date and t.due_date < today %}
+        <li class="list-group-item">
+          <div class="d-flex flex-wrap justify-content-between gap-2">
+            <div><div class="fw-semibold {% if t.status == 'completed' %}text-decoration-line-through text-body-secondary{% endif %}">{{ t.title }}</div>
+              <div class="small-muted">{{ t.category_label }} · due <span class="{% if overdue %}text-danger fw-semibold{% endif %}">{{ t.due_date|date }}{% if overdue %} (overdue){% endif %}</span></div>
+              {% if t.description %}<div class="small prose-pre mt-1">{{ t.description }}</div>{% endif %}
+              {% if t.category == 'document' %}<div class="small mt-1"><i class="bi bi-arrow-down-right me-1"></i>Upload the file under <a href="#documents">Documents</a> — this task completes when HR verifies it.</div>{% endif %}</div>
+            <div>{% with allow_reopen=false %}{% include "_task_controls.html" %}{% endwith %}</div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}{{ ui.empty('bi-check2-all', 'Nothing for you to do right now', 'HR will add tasks here as your start date approaches.') }}{% endif %}
+    </div>
+
+    <div class="card" id="documents">
+      <div class="card-header"><i class="bi bi-folder2-open me-1"></i>Documents</div>
+      {% if emp.documents %}
+      <ul class="list-group list-group-flush">
+        {% for d in emp.documents %}
+        <li class="list-group-item">
+          <div class="d-flex flex-wrap justify-content-between gap-2 align-items-center">
+            <div><div class="fw-semibold">{{ d.title }}{% if d.required %} <span class="small-muted">(required)</span>{% endif %}</div>
+              <div class="small-muted">{% if d.submitted_at %}Uploaded {{ d.submitted_at|dt }} · {{ d.original_filename }}{% else %}Not uploaded yet{% endif %}</div>
+              {% if d.status == 'rejected' and d.review_notes %}<div class="small text-danger"><i class="bi bi-exclamation-circle me-1"></i>{{ d.review_notes }}</div>{% endif %}</div>
+            {{ ui.status(d.status) }}
+          </div>
+          {% if d.status in ('requested', 'rejected', 'submitted') %}
+          <form method="post" action="{{ url_for('portal.upload_document', doc_id=d.id) }}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 mt-2">{{ ui.csrf() }}
+            <label class="visually-hidden" for="f-{{ d.id }}">File for {{ d.title }}</label>
+            <input class="form-control form-control-sm" style="max-width:340px" type="file" id="f-{{ d.id }}" name="file" accept=".pdf,.jpg,.jpeg,.png,.docx" required>
+            <button class="btn btn-sm btn-primary" type="submit" data-loading>{{ 'Replace' if d.status == 'submitted' else 'Upload' }}</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="card-body pt-2 small-muted">PDF, JPG, PNG or DOCX, up to {{ config.MAX_CONTENT_LENGTH // 1024 // 1024 }} MB. Files are private to you and HR.</div>
+      {% else %}{{ ui.empty('bi-folder2-open', 'No documents requested') }}{% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-mortarboard me-1"></i>Training</div>
+      {% if emp.trainings %}
+      <ul class="list-group list-group-flush">
+        {% for tr in emp.trainings %}
+        <li class="list-group-item d-flex flex-wrap justify-content-between gap-2 align-items-center">
+          <div><div class="fw-semibold">{{ tr.title }}{% if tr.is_mandatory %} <span class="badge text-bg-indigo">Mandatory</span>{% endif %}</div>
+            <div class="small-muted">Due {{ tr.due_date|date }}{% if tr.resource_url %} · <a href="{{ tr.resource_url }}" target="_blank" rel="noopener noreferrer">Open material <i class="bi bi-box-arrow-up-right"></i></a>{% endif %}</div></div>
+          {% if tr.status == 'completed' %}{{ ui.status(tr.status) }}{% else %}
+          <form method="post" action="{{ url_for('employees.training_status', training_id=tr.id) }}" class="d-flex gap-1">{{ ui.csrf() }}
+            {% if tr.status == 'assigned' %}<button class="btn btn-sm btn-light" name="status" value="in_progress" data-loading>Start</button>{% endif %}
+            <button class="btn btn-sm btn-success" name="status" value="completed" data-loading>Mark complete</button>
+          </form>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}{{ ui.empty('bi-mortarboard', 'No training assigned yet') }}{% endif %}
+    </div>
+  </div>
+
+  <div class="col-xl-4 d-grid gap-3 align-content-start">
+    {% if others %}
+    <div class="card"><div class="card-header">Being prepared for you</div>
+      <ul class="list-group list-group-flush">
+        {% for t in others %}<li class="list-group-item d-flex justify-content-between align-items-center small">
+          <span>{{ t.title }} <span class="small-muted">· {{ t.assignee_type|owner }}</span></span>{{ ui.status(t.status) }}</li>{% endfor %}
+      </ul></div>
+    {% endif %}
+
+    <div class="card"><div class="card-header">IT & equipment</div><div class="card-body">
+      {% for r in emp.it_requests %}
+        <div class="d-flex justify-content-between align-items-start gap-2 small mb-2"><span>{{ r.request_type|humanize }} — {{ r.details }}</span>{{ ui.status(r.status) }}</div>
+      {% endfor %}
+      <form method="post" action="{{ url_for('employees.add_it_request', employee_id=emp.id) }}" class="mt-2">{{ ui.csrf() }}
+        <label class="form-label small" for="it-type">Need something?</label>
+        <select class="form-select form-select-sm mb-2" id="it-type" name="request_type">{% for t in it_types %}<option value="{{ t }}">{{ t|humanize }}</option>{% endfor %}</select>
+        <label class="visually-hidden" for="it-det">Details</label>
+        <input class="form-control form-control-sm mb-2" id="it-det" name="details" required minlength="3" maxlength="500" placeholder="What do you need?">
+        <button class="btn btn-sm btn-light w-100" type="submit" data-loading>Send request</button>
+      </form>
+    </div></div>
+
+    {% set upcoming = emp.milestones|selectattr('status', 'equalto', 'scheduled')|list %}
+    <div class="card"><div class="card-header">Check-ins with your manager</div><div class="card-body small">
+      {% for m in upcoming %}<div class="d-flex justify-content-between mb-1"><span>{{ m.title }}</span><span class="small-muted">{{ m.due_date|date }}</span></div>
+      {% else %}<span class="small-muted">No check-ins scheduled yet.</span>{% endfor %}
+      <div class="small-muted mt-2">Probation ends {{ emp.probation_end_date|date }}.</div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Privacy notice{% endblock %}
+{% macro notice() %}
+<div class="card"><div class="card-body p-4" style="max-width: 860px">
+  <p><strong>{{ org_name }}</strong> uses Ingenium AI to manage recruitment and onboarding. This notice explains what we collect and why.</p>
+  <h2 class="h6 fw-bold mt-4">What we collect</h2>
+  <ul><li>Account data: name, email address and a securely hashed password.</li>
+    <li>Recruitment data you provide: contact details, professional profile, resumes, applications and cover notes.</li>
+    <li>Assessment records created by our staff: screening notes, interview feedback and hiring decisions.</li>
+    <li>If you join us: employment, onboarding, training and probation records and the documents you upload.</li></ul>
+  <p>We do not ask for, and our scoring does not use, age, gender, ethnicity, religion, disability, marital status or other protected characteristics.</p>
+  <h2 class="h6 fw-bold mt-4">How AI is used</h2>
+  <p>Skill comparisons are rule-based and explainable. An optional language model running on our own infrastructure (Ollama) can
+    summarise resume evidence and suggest interview questions. Contact details are removed before text is sent to the model.
+    <strong>No hiring, rejection or promotion decision is ever made automatically</strong> — authorised staff review all evidence.</p>
+  <h2 class="h6 fw-bold mt-4">Access & security</h2>
+  <p>Access is role-based: candidates only see their own records, interviewers only see what they need for assigned interviews.
+    Files are stored privately and are never publicly accessible. Sensitive actions are recorded in an audit log.</p>
+  <h2 class="h6 fw-bold mt-4">Retention</h2>
+  <p>Resumes of unsuccessful candidates are deleted after {{ retention_days }} days once all their applications are closed,
+    unless you join us as an employee. You can withdraw open applications and delete resumes not attached to active applications at any time.</p>
+  <h2 class="h6 fw-bold mt-4">Your rights</h2>
+  <p class="mb-0">Depending on your jurisdiction (for example India's Digital Personal Data Protection Act 2023 or the EU/UK GDPR) you may have rights
+    to access, correct or erase your data and to withdraw consent. Contact our HR team to exercise them.</p>
+</div></div>
+{% endmacro %}
+{% block content %}{% call ui.page_header('Privacy notice') %}{% endcall %}{{ notice() }}{% endblock %}
+{% block public %}<div class="container py-4"><h1 class="h3 fw-bold mb-3">Privacy notice</h1>{{ notice() }}</div>{% endblock %}

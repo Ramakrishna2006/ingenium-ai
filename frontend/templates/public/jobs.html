@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Open roles{% endblock %}
+{% macro body_content() %}
+  <form class="card mb-4" method="get" role="search" aria-label="Filter jobs">
+    <div class="card-body row g-2 align-items-end">
+      <div class="col-md-4"><label class="form-label" for="f-q">Keyword</label>
+        <input id="f-q" class="form-control" name="q" value="{{ filters.q }}" placeholder="Title or skill"></div>
+      <div class="col-md-3"><label class="form-label" for="f-d">Department</label>
+        <select id="f-d" class="form-select" name="department"><option value="">All departments</option>
+          {% for d in departments %}<option value="{{ d.id }}" {% if filters.department == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+      <div class="col-md-2"><label class="form-label" for="f-t">Type</label>
+        <select id="f-t" class="form-select" name="type"><option value="">Any</option>
+          {% for k, v in types.items() %}<option value="{{ k }}" {% if filters.type == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+      <div class="col-md-2"><label class="form-label" for="f-l">Location</label>
+        <input id="f-l" class="form-control" name="location" value="{{ filters.location }}" placeholder="City or 'remote'"></div>
+      <div class="col-md-1 d-grid"><button class="btn btn-primary" type="submit" aria-label="Apply filters"><i class="bi bi-funnel"></i></button></div>
+    </div>
+  </form>
+  <div class="row g-3">
+    {% for job in page.items %}
+      <div class="col-md-6 col-xl-4">{% include "public/_job_card.html" %}</div>
+    {% else %}
+      <div class="col-12"><div class="card">{{ ui.empty('bi-search', 'No roles match your filters', 'Try a broader keyword or clear the filters.', url_for('careers.list_jobs'), 'Clear filters') }}</div></div>
+    {% endfor %}
+  </div>
+  <div class="card mt-3 border-0 bg-transparent shadow-none">{{ ui.pagination(page, 'careers.list_jobs') }}</div>
+{% endmacro %}
+{% block content %}
+  {% call ui.page_header('Open roles', page.total ~ ' vacancies currently accepting applications') %}{% endcall %}
+  {{ body_content() }}
+{% endblock %}
+{% block public %}
+<div class="container py-4">
+  <h1 class="h3 fw-bold">Open roles</h1>
+  <p class="small-muted">{{ page.total }} vacancies currently accepting applications.</p>
+  {{ body_content() }}
+</div>
+{% endblock %}

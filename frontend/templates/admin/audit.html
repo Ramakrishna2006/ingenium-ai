@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+{{ ui.page_header('Audit log', 'Append-only record of sensitive actions. Document contents and passwords are never stored here.', [('Administration', None), ('Audit log', None)]) }}
+<div class="card">
+  <div class="card-header"><form class="row g-2 align-items-end" method="get">
+    <div class="col-md-5"><label class="form-label small" for="a-act">Action starts with</label><input class="form-control form-control-sm" id="a-act" name="action" value="{{ filters.action }}" placeholder="e.g. offer."></div>
+    <div class="col-md-4"><label class="form-label small" for="a-ent">Entity</label><select class="form-select form-select-sm" id="a-ent" name="entity"><option value="">Any</option>{% for e in entities %}<option value="{{ e }}" {% if filters.entity == e %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+    <div class="col-md-3 d-flex gap-2"><button class="btn btn-sm btn-primary flex-grow-1">Filter</button>{% if filters.action or filters.entity or filters.actor %}<a class="btn btn-sm btn-light" href="{{ url_for('admin.audit') }}">Clear</a>{% endif %}</div>
+  </form></div>
+  {% if page.items %}
+  <div class="table-responsive"><table class="table align-middle small">
+    <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Entity</th><th>Details</th><th>IP</th></tr></thead>
+    <tbody>{% for a in page.items %}
+      <tr><td class="text-nowrap">{{ a.created_at|dt('%d %b %Y, %H:%M:%S') }}</td>
+        <td>{% if a.actor %}<a href="{{ url_for('admin.audit', actor=a.actor_id) }}">{{ a.actor.full_name }}</a>{% else %}<span class="small-muted">System</span>{% endif %}</td>
+        <td><code>{{ a.action }}</code></td><td>{{ a.entity_type }}{% if a.entity_id %} #{{ a.entity_id }}{% endif %}</td>
+        <td class="text-break" style="max-width:360px">{% if a.details %}<code class="small">{{ a.details|tojson|truncate(220) }}</code>{% endif %}</td>
+        <td class="small-muted">{{ a.ip_address or '—' }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {{ ui.pagination(page, 'admin.audit') }}
+  {% else %}{{ ui.empty('bi-journal-text', 'No audit entries match') }}{% endif %}
+</div>
+{% endblock %}

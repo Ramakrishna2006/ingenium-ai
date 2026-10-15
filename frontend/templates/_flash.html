@@ -1,0 +1,13 @@
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="mb-3" role="status" aria-live="polite">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ {'message': 'info', 'error': 'danger'}.get(category, category) }} alert-dismissible fade show d-flex gap-2 align-items-start" role="alert">
+      <i class="bi {{ {'success': 'bi-check-circle', 'danger': 'bi-exclamation-octagon', 'warning': 'bi-exclamation-triangle'}.get(category, 'bi-info-circle') }}" aria-hidden="true"></i>
+      <div class="flex-grow-1">{{ message }}</div>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}

@@ -1,0 +1,48 @@
+# Render Blueprint for Ingenium AI.
+# New > Blueprint > connect this repo. Secrets marked `sync: false` are entered in the dashboard.
+databases:
+  - name: ingenium-db
+    databaseName: ingenium_db
+    user: ingenium
+    plan: free            # choose a paid plan for real data (backups, no expiry)
+
+services:
+  - type: web
+    name: ingenium-ai
+    runtime: python
+    plan: starter         # pre-deploy commands and persistent disks need a paid instance
+    buildCommand: pip install -r backend/requirements.txt
+    # Runs ONCE per deploy, before new code serves traffic (never in every worker).
+    # On the free plan remove this line and run migrations from your PC instead (see README section 9).
+    preDeployCommand: flask --app backend/run.py db upgrade
+    startCommand: gunicorn --chdir backend run:app --workers 2 --threads 4 --timeout 120 --access-logfile -
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ingenium-db
+          property: connectionString
+      - key: SESSION_COOKIE_SECURE
+        value: "1"
+      - key: UPLOAD_FOLDER
+        value: /var/data/uploads
+      # Ollama on your PC is NOT reachable from Render. Point this at a separately hosted,
+      # authenticated Ollama endpoint, or set AI_ENABLED=0 (all non-AI workflows keep working).
+      - key: OLLAMA_BASE_URL
+        sync: false
+      - key: OLLAMA_API_KEY
+        sync: false
+      - key: OLLAMA_MODEL
+        value: qwen2.5:7b
+      - key: AI_ENABLED
+        value: "1"
+    disk:                 # private persistent storage for resumes/documents (paid plans only)
+      name: ingenium-files
+      mountPath: /var/data
+      sizeGB: 1

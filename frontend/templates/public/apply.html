@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Apply for a job{% endblock %}
+{% block public %}
+<section class="tf-hero" style="padding:3.5rem 0 4.5rem">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-7">
+        <span class="badge rounded-pill text-bg-teal mb-3"><i class="bi bi-send me-1"></i>For job seekers</span>
+        <h1>Apply for a job{% if org_name %} at {{ org_name }}{% endif %}</h1>
+        <p class="lead mt-3">{{ open_count }} role{{ '' if open_count == 1 else 's' }} open right now. Create a free candidate account, upload your resume once and apply to as many roles as you like.</p>
+        <form class="d-flex flex-wrap gap-2 mt-4" action="{{ url_for('careers.list_jobs') }}" method="get" role="search">
+          <label class="visually-hidden" for="hero-q">Search jobs</label>
+          <input id="hero-q" class="form-control form-control-lg" style="max-width:380px" name="q" placeholder="Job title or skill, e.g. Python">
+          <button class="btn btn-teal btn-lg" type="submit"><i class="bi bi-search me-1"></i>Search jobs</button>
+        </form>
+      </div>
+      <div class="col-lg-5">
+        <div class="card border-0">
+          <div class="card-body p-4">
+            <h2 class="h5 fw-bold mb-1">Get started</h2>
+            <p class="small-muted mb-3">New here? Create your account first — it takes a minute.</p>
+            <div class="d-grid gap-2">
+              <a class="btn btn-teal" href="{{ url_for('auth.register') }}"><i class="bi bi-person-plus me-1"></i>Create candidate account</a>
+              <a class="btn btn-light" href="{{ url_for('auth.login', **{'as': 'candidate'}) }}"><i class="bi bi-box-arrow-in-right me-1"></i>I already have an account</a>
+            </div>
+            <hr>
+            <p class="small-muted mb-0">Already work here? <a href="{{ url_for('auth.login', **{'as': 'employee'}) }}">Employee sign in</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container" style="margin-top:-2.5rem" aria-labelledby="how">
+  <div class="card"><div class="card-body p-4">
+    <h2 id="how" class="h5 fw-bold mb-3">How to apply</h2>
+    <div class="row g-3">
+      {% for title, text, icon in [
+        ('Create an account', 'Register with your name, email and a password. Free, and only for job seekers.', 'bi-person-plus'),
+        ('Upload your resume', 'PDF or Word (DOCX), up to ' ~ (config.MAX_CONTENT_LENGTH // 1024 // 1024) ~ ' MB. We read your skills — you can correct them.', 'bi-file-earmark-arrow-up'),
+        ('Apply to roles', 'Open any job and click Apply. Add a short cover note if you like.', 'bi-send-check'),
+        ('Track your progress', 'See every step — review, interview, offer — on your application timeline.', 'bi-signpost-split')] %}
+      <div class="col-sm-6 col-lg-3">
+        <div class="d-flex gap-3">
+          <div class="tf-step-num">{{ loop.index }}</div>
+          <div><div class="fw-semibold"><i class="bi {{ icon }} me-1" aria-hidden="true"></i>{{ title }}</div>
+            <div class="small-muted">{{ text }}</div></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div></div>
+</section>
+
+<section class="container mt-5">
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div><h2 class="h4 fw-bold mb-1">Latest openings</h2><p class="small-muted mb-0">Click a role to see details and apply.</p></div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for d in departments[:5] %}<a class="btn btn-light btn-sm" href="{{ url_for('careers.list_jobs', department=d.id) }}">{{ d.name }}</a>{% endfor %}
+      <a href="{{ url_for('careers.list_jobs') }}" class="btn btn-primary btn-sm">All {{ open_count }} roles <i class="bi bi-arrow-right"></i></a>
+    </div>
+  </div>
+  <div class="row g-3">
+    {% for job in jobs %}
+      <div class="col-md-6 col-lg-4">{% include "public/_job_card.html" %}</div>
+    {% else %}
+      <div class="col-12"><div class="card">{{ ui.empty('bi-briefcase', 'No open roles right now', 'Create an account anyway — you will be able to apply as soon as new roles are published.', url_for('auth.register'), 'Create account') }}</div></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="container mt-5">
+  <h2 class="h5 fw-bold mb-3">Common questions</h2>
+  <div class="accordion" id="faq">
+    {% for q, a in [
+      ('Do I need an account to apply?', 'Yes. Your account keeps your resume and applications in one place so you can track them and respond to offers.'),
+      ('Can I apply for more than one job?', 'Yes — apply to as many roles as fit you. You can only apply once to each role.'),
+      ('Is AI used to decide on my application?', 'No. AI may summarise the skills in your resume for a recruiter, but people review every application and make every decision.'),
+      ('How is my data used?', 'Only for recruitment at this organisation. Read the privacy notice for what we keep and for how long.')] %}
+    <div class="accordion-item">
+      <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq{{ loop.index }}" aria-expanded="false" aria-controls="faq{{ loop.index }}">{{ q }}</button></h3>
+      <div id="faq{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#faq"><div class="accordion-body small">{{ a }}{% if loop.last %} <a href="{{ url_for('main.privacy') }}">Privacy notice</a>.{% endif %}</div></div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ cand.user.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(cand.user.full_name, cand.headline or 'Candidate', [('Candidates', url_for('candidates.directory')), (cand.user.full_name, None)]) %}{% endcall %}
+<div class="row g-3">
+  <div class="col-xl-4 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-body small">
+      <div class="d-flex align-items-center gap-3 mb-3"><span class="tf-avatar" style="width:48px;height:48px;font-size:1rem">{{ cand.user.initials }}</span>
+        <div><div class="fw-bold">{{ cand.user.full_name }}</div><div class="small-muted">{{ cand.location or 'Location not provided' }}</div></div></div>
+      {% if not limited %}
+        <div><i class="bi bi-envelope me-2"></i>{{ cand.user.email }}</div>
+        {% if cand.phone %}<div><i class="bi bi-telephone me-2"></i>{{ cand.phone }}</div>{% endif %}
+        {% if cand.linkedin_url %}<div><i class="bi bi-linkedin me-2"></i><a href="{{ cand.linkedin_url }}" target="_blank" rel="noopener noreferrer">LinkedIn</a></div>{% endif %}
+        {% if cand.portfolio_url %}<div><i class="bi bi-globe me-2"></i><a href="{{ cand.portfolio_url }}" target="_blank" rel="noopener noreferrer">Portfolio</a></div>{% endif %}
+      {% else %}<div class="small-muted"><i class="bi bi-eye-slash me-1"></i>Contact details hidden for your access level.</div>{% endif %}
+      <hr>
+      <div class="mb-2"><span class="small-muted">Experience:</span> {{ cand.years_experience ~ ' years' if cand.years_experience is not none else 'Not stated' }}</div>
+      <div class="small-muted mb-1">Skills</div><div class="mb-2">{{ ui.skills(cand.skills) }}</div>
+      {% if cand.education %}<div class="small-muted mb-1">Education</div><ul class="ps-3 mb-2">{% for e in cand.education %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% if cand.certifications %}<div class="small-muted mb-1">Certifications</div><ul class="ps-3 mb-0">{% for e in cand.certifications %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% if cand.summary %}<hr><p class="prose-pre mb-0">{{ cand.summary }}</p>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-xl-8 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-header">Applications visible to you</div>
+      {% if apps %}<ul class="list-group list-group-flush">
+        {% for a in apps %}<li class="list-group-item d-flex justify-content-between align-items-center">
+          <div><a class="fw-semibold" href="{{ url_for('applications.detail', app_id=a.id) }}">{{ a.job.title }}</a><div class="small-muted">{{ a.submitted_at|date }}</div></div>{{ ui.status(a.status, a.status_label) }}</li>{% endfor %}
+      </ul>{% else %}<div class="card-body small-muted">No applications in your scope.</div>{% endif %}
+    </div>
+
+    {% if current_user.can('application.screen') %}
+    <form class="card" method="post" action="{{ url_for('candidates.compare', candidate_id=cand.id) }}">
+      <div class="card-header"><i class="bi bi-columns-gap me-1"></i>Multi-job comparison</div>
+      <div class="card-body">{{ ui.csrf() }}
+        <p class="small-muted">Compare this candidate’s documented skills against several vacancies at once. Leave empty to compare the vacancies they applied to.</p>
+        <label class="form-label small" for="job_ids">Vacancies (hold Ctrl/Cmd to select several, max 10)</label>
+        <select class="form-select" id="job_ids" name="job_ids" multiple size="6">
+          {% set applied = cand.applications|map(attribute='job_id')|list %}
+          {% for j in open_jobs %}<option value="{{ j.id }}" {% if j.id in applied %}selected{% endif %}>{{ j.title }} — {{ j.department.name }}</option>{% endfor %}
+        </select>
+        <div class="form-check mt-2"><input class="form-check-input" type="checkbox" name="explain_with_ai" id="ai" value="1"><label class="form-check-label small" for="ai">Add an AI-written explanation (requires Ollama)</label></div>
+      </div>
+      <div class="card-footer bg-white text-end">{{ ui.submit('Compare', 'btn-primary', 'bi-columns-gap') }}</div>
+    </form>
+    {% endif %}
+
+    <div class="card"><div class="card-header">Resumes</div>
+      {% if cand.resumes %}<ul class="list-group list-group-flush">
+        {% for r in cand.resumes %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between"><a href="{{ url_for('files.resume', resume_id=r.id) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text me-1"></i>{{ r.original_filename }}</a>
+            <span>{{ ui.status(r.parse_status) }} {% if r.is_primary %}<span class="badge text-bg-indigo">Primary</span>{% endif %}</span></div>
+          {% if r.parse_status == 'parsed' and current_user.can('application.screen') %}
+          <form class="d-flex gap-2 mt-2" method="post" action="{{ url_for('candidates.correct_resume', resume_id=r.id) }}">{{ ui.csrf() }}
+            <input class="form-control form-control-sm" name="skills" value="{{ (r.extracted.skills or [])|join(', ') }}" aria-label="Extracted skills">
+            <button class="btn btn-sm btn-light" type="submit">Correct</button></form>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>{% else %}<div class="card-body small-muted">No resumes uploaded.</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

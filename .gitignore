@@ -1,0 +1,30 @@
+# Secrets & local config
+.env
+.env.*
+!.env.example
+
+# Private data — never commit uploads, resumes, employee documents, offer letters or local databases
+instance/
+uploads/
+*.sqlite3
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Database backups contain personal data
+*.dump
+*.sql.gz

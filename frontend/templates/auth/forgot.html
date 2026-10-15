@@ -1,0 +1,19 @@
+{% extends "auth/_layout.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Reset password{% endblock %}
+{% block form %}
+<h1 class="h3 fw-bold mb-1">Reset your password</h1>
+{% if enabled %}
+<p class="small-muted mb-4">Enter your email and we'll send a single-use reset link valid for one hour.</p>
+<form method="post">
+  {{ ui.csrf() }}
+  <div class="mb-4"><label class="form-label" for="email">Email</label>
+    <input class="form-control" type="email" id="email" name="email" required autocomplete="email"></div>
+  {{ ui.submit('Send reset link', 'btn-primary w-100 py-2', 'bi-envelope') }}
+</form>
+{% else %}
+<div class="alert alert-info mt-3">Email delivery isn't configured on this server, so self-service reset is unavailable.
+  Please ask an administrator to reset your password.</div>
+{% endif %}
+<p class="small-muted mt-4 mb-0"><a href="{{ url_for('auth.login') }}"><i class="bi bi-arrow-left"></i> Back to sign in</a></p>
+{% endblock %}

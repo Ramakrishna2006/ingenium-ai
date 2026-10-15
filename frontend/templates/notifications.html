@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+{% call ui.page_header('Notifications', 'Updates about your work in Ingenium AI') %}
+  {% if unread_notifications %}
+  <form method="post" action="{{ url_for('main.notifications_read') }}">{{ ui.csrf() }}
+    <button class="btn btn-light" type="submit"><i class="bi bi-check2-all me-1"></i>Mark all as read</button></form>
+  {% endif %}
+{% endcall %}
+<div class="card">
+  <ul class="list-group list-group-flush">
+    {% for n in page.items %}
+    <li class="list-group-item d-flex gap-3 align-items-start {% if not n.read_at %}bg-light{% endif %}">
+      <i class="bi {{ {'interview': 'bi-calendar-event', 'offer': 'bi-envelope-paper', 'application': 'bi-send', 'onboarding': 'bi-rocket-takeoff', 'reminder': 'bi-alarm', 'document': 'bi-file-earmark-check'}.get(n.category, 'bi-bell') }} fs-5 text-primary"></i>
+      <div class="flex-grow-1">
+        <div class="fw-semibold">{{ n.title }} {% if not n.read_at %}<span class="badge text-bg-indigo ms-1">New</span>{% endif %}</div>
+        {% if n.body %}<div class="small">{{ n.body }}</div>{% endif %}
+        <div class="small-muted">{{ n.created_at|dt }}</div>
+      </div>
+      <form method="post" action="{{ url_for('main.notifications_read') }}">{{ ui.csrf() }}
+        <input type="hidden" name="id" value="{{ n.id }}"><input type="hidden" name="next" value="{{ n.link or url_for('main.notifications') }}">
+        <button class="btn btn-sm btn-light" type="submit">{{ 'Open' if n.link else 'Mark read' }}</button></form>
+    </li>
+    {% else %}
+    <li class="list-group-item">{{ ui.empty('bi-bell-slash', "You're all caught up", 'New updates will appear here.') }}</li>
+    {% endfor %}
+  </ul>
+  {{ ui.pagination(page, 'main.notifications') }}
+</div>
+{% endblock %}

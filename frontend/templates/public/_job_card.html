@@ -1,0 +1,19 @@
+{% import "_macros.html" as ui with context %}
+<div class="card tf-job-card h-100">
+  <div class="card-body d-flex flex-column">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <h3 class="h6 fw-bold mb-1"><a class="stretched-link text-reset text-decoration-none" href="{{ url_for('careers.job_detail', job_id=job.id) }}">{{ job.title }}</a></h3>
+      {% if applied_ids is defined and job.id in applied_ids %}<span class="badge text-bg-success">Applied</span>{% endif %}
+    </div>
+    <div class="small-muted mb-2"><i class="bi bi-building me-1"></i>{{ job.department.name }}
+      · <i class="bi bi-geo-alt ms-1 me-1"></i>{{ job.location or 'Flexible' }}{% if job.is_remote %} · Remote{% endif %}</div>
+    <p class="small mb-3 text-secondary">{{ job.description|truncate(140) }}</p>
+    <div class="mt-auto">
+      {% for s in (job.required_skills or [])[:4] %}<span class="chip">{{ s }}</span>{% endfor %}
+      <div class="d-flex justify-content-between small-muted mt-2">
+        <span>{{ job.employment_type_label }}</span>
+        <span>{% if job.application_deadline %}Apply by {{ job.application_deadline|date }}{% else %}Open until filled{% endif %}</span>
+      </div>
+    </div>
+  </div>
+</div>

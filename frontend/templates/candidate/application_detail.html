@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ app.job.title }}{% endblock %}
+{% block content %}
+{% call ui.page_header(app.job.title, app.job.department.name ~ ' · applied ' ~ (app.submitted_at|date), [('My applications', url_for('candidate.applications')), (app.job.title, None)]) %}
+  {{ ui.status(app.status, app.status_label) }}
+{% endcall %}
+<div class="row g-3">
+  <div class="col-lg-7 d-grid gap-3 align-content-start">
+    {% if offer %}
+    <div class="card border-success"><div class="card-body d-flex flex-wrap gap-3 align-items-center">
+      <i class="bi bi-envelope-paper-heart fs-2 text-success"></i>
+      <div class="flex-grow-1"><div class="fw-bold">Offer: {{ offer.designation }}</div>
+        <div class="small-muted">{{ ui.status(offer.status, offer.status_label) }} {% if offer.status == 'approved' %}· respond by {{ offer.expires_on|date }}{% endif %}</div></div>
+      <a class="btn btn-success" href="{{ url_for('candidate.offer', offer_id=offer.id) }}">View offer</a>
+    </div></div>
+    {% endif %}
+    {% set upcoming = app.interviews|selectattr('status', 'equalto', 'scheduled')|list %}
+    {% if upcoming %}
+    <div class="card"><div class="card-header">Your interviews</div>
+      <ul class="list-group list-group-flush">
+        {% for iv in upcoming %}
+        <li class="list-group-item">
+          <div class="fw-semibold">{{ iv.kind_label }} interview · {{ iv.duration_minutes }} min</div>
+          <div class="small">{{ iv.scheduled_at|dt('%A %d %B %Y, %H:%M %Z', iv.timezone) }}</div>
+          <div class="small-muted">{% if iv.meeting_link %}<a href="{{ iv.meeting_link }}" target="_blank" rel="noopener noreferrer">Join meeting</a>{% endif %}
+            {% if iv.location %}{{ iv.location }}{% endif %}</div>
+        </li>
+        {% endfor %}
+      </ul></div>
+    {% endif %}
+    <div class="card"><div class="card-header">Application timeline</div><div class="card-body">
+      <ol class="tf-timeline">
+        {% for e in events %}
+        <li class="{% if not loop.last %}done{% endif %}">
+          <div class="fw-semibold">{{ e.to_status|humanize }}</div>
+          <div class="small-muted">{{ e.created_at|dt }}</div>
+          {% if e.reason and e.actor_id == current_user.id %}<div class="small">{{ e.reason }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </div></div>
+  </div>
+  <div class="col-lg-5 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-body">
+      <h2 class="h6 fw-bold">Submitted with</h2>
+      {% if app.resume %}<p class="mb-2"><a href="{{ url_for('files.resume', resume_id=app.resume.id) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text me-1"></i>{{ app.resume.original_filename }}</a></p>{% endif %}
+      {% if app.cover_letter %}<h2 class="h6 fw-bold mt-3">Cover note</h2><p class="small prose-pre mb-0">{{ app.cover_letter }}</p>{% endif %}
+      <a class="btn btn-light btn-sm mt-3" href="{{ url_for('careers.job_detail', job_id=app.job_id) }}">View job posting</a>
+    </div></div>
+    {% if app.status in ['submitted','under_review','on_hold','further_review','shortlisted','interviewing','approved_for_offer'] %}
+    <form class="card" method="post" action="{{ url_for('candidate.withdraw', app_id=app.id) }}"><div class="card-body">
+      {{ ui.csrf() }}
+      <h2 class="h6 fw-bold">Withdraw application</h2>
+      <label class="form-label small" for="reason">Reason (optional, shared with the recruiter)</label>
+      <textarea class="form-control mb-2" id="reason" name="reason" rows="2" maxlength="500"></textarea>
+      {{ ui.submit('Withdraw', 'btn-outline-danger btn-sm', confirm='Withdraw this application? You cannot re-apply to the same vacancy.') }}
+    </div></form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

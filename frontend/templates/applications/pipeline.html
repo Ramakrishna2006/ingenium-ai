@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Recruitment pipeline{% endblock %}
+{% block content %}
+{% call ui.page_header('Recruitment pipeline', total ~ ' applications in your scope') %}{% endcall %}
+<form class="card mb-3" method="get" role="search"><div class="card-body row g-2 align-items-end">
+  <div class="col-md-5"><label class="form-label small" for="job">Vacancy</label>
+    <select class="form-select form-select-sm" id="job" name="job"><option value="">All vacancies</option>
+      {% for j in jobs %}<option value="{{ j.id }}" {% if job_id == j.id %}selected{% endif %}>{{ j.title }}</option>{% endfor %}</select></div>
+  <div class="col-md-4"><label class="form-label small" for="q">Candidate name</label><input class="form-control form-control-sm" id="q" name="q" value="{{ q }}"></div>
+  <div class="col-md-3 d-flex gap-2"><button class="btn btn-sm btn-primary" type="submit">Filter</button><a class="btn btn-sm btn-light" href="{{ url_for('applications.pipeline') }}">Reset</a></div>
+</div></form>
+{% if total %}
+<div class="tf-board" role="list">
+  {% for label, items in columns %}
+  <section class="tf-col" role="listitem" aria-label="{{ label }}">
+    <h2><span>{{ label }}</span><span class="badge text-bg-secondary">{{ items|length }}</span></h2>
+    {% for a in items %}{% set s = a.latest_screening %}
+    <a class="tf-card-mini" href="{{ url_for('applications.detail', app_id=a.id) }}">
+      <div class="fw-semibold">{{ a.candidate.user.full_name }}</div>
+      <div class="small-muted text-truncate">{{ a.job.title }}</div>
+      <div class="d-flex justify-content-between align-items-center mt-2">
+        {{ ui.status(a.status, a.status_label) }}
+        {% if s and s.skill_overlap is not none %}<span class="small-muted" title="Required-skill overlap">{{ s.skill_overlap|pct }}</span>{% endif %}
+      </div>
+    </a>
+    {% else %}<p class="small-muted text-center my-4">Empty</p>{% endfor %}
+  </section>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">{{ ui.empty('bi-kanban', 'No applications in your scope', 'Applications for vacancies you are assigned to will appear here.') }}</div>
+{% endif %}
+{% endblock %}

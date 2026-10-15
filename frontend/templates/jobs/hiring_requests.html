@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Hiring requests{% endblock %}
+{% block content %}
+{% call ui.page_header('Hiring requests', 'Workforce planning: request headcount, approve, then open vacancies') %}
+  {% if current_user.can('hiring_request.create') %}
+  <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#newRequest" aria-expanded="false" aria-controls="newRequest">
+    <i class="bi bi-plus-lg me-1"></i>New request</button>{% endif %}
+{% endcall %}
+
+{% macro request_fields(hr=None) %}
+  <div class="row g-3">
+    <div class="col-md-6"><label class="form-label">Role title</label><input class="form-control" name="title" required minlength="2" maxlength="150" value="{{ hr.title if hr else '' }}"></div>
+    <div class="col-md-6"><label class="form-label">Department</label>
+      <select class="form-select" name="department_id" required>{% for d in departments %}<option value="{{ d.id }}" {% if hr and hr.department_id == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+    <div class="col-md-4"><label class="form-label">Hiring manager</label>
+      <select class="form-select" name="hiring_manager_id"><option value="">—</option>{% for u in managers %}<option value="{{ u.id }}" {% if hr and hr.hiring_manager_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label class="form-label">Headcount</label><input class="form-control" type="number" min="1" max="500" name="headcount" value="{{ hr.headcount if hr else 1 }}" required></div>
+    <div class="col-md-3"><label class="form-label">Employment type</label>
+      <select class="form-select" name="employment_type">{% for k, v in types.items() %}<option value="{{ k }}" {% if hr and hr.employment_type == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label class="form-label">Target start</label><input class="form-control" type="date" name="target_date" value="{{ hr.target_date if hr and hr.target_date else '' }}"></div>
+    <div class="col-md-3"><label class="form-label">Budget (annual)</label><input class="form-control" type="number" min="0" step="0.01" name="budget_amount" value="{{ hr.budget_amount if hr and hr.budget_amount is not none else '' }}"></div>
+    <div class="col-md-2"><label class="form-label">Currency</label><input class="form-control" name="budget_currency" maxlength="3" minlength="3" placeholder="INR" value="{{ hr.budget_currency if hr and hr.budget_currency else '' }}"></div>
+    <div class="col-12"><label class="form-label">Business justification</label><textarea class="form-control" name="justification" rows="3" required minlength="10" maxlength="4000">{{ hr.justification if hr else '' }}</textarea></div>
+  </div>
+{% endmacro %}
+
+{% if current_user.can('hiring_request.create') %}
+<div class="collapse mb-3" id="newRequest">
+  <form class="card" method="post" action="{{ url_for('jobs.create_hiring_request') }}"><div class="card-body">
+    {{ ui.csrf() }}{{ request_fields() }}
+    <div class="mt-3 text-end">{{ ui.submit('Submit for approval', 'btn-primary', 'bi-send') }}</div>
+  </div></form>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header d-flex gap-2 flex-wrap">
+    {% for s in ['', 'pending', 'approved', 'revision_requested', 'rejected', 'closed'] %}
+      <a class="btn btn-sm {% if (status or '') == s %}btn-primary{% else %}btn-light{% endif %}" href="{{ url_for('jobs.hiring_requests', status=s or None) }}">{{ (s or 'all')|humanize }}</a>
+    {% endfor %}
+  </div>
+  {% if page.items %}
+  <ul class="list-group list-group-flush">
+    {% for hr in page.items %}
+    <li class="list-group-item py-3">
+      <div class="d-flex flex-wrap justify-content-between gap-2">
+        <div>
+          <div class="fw-bold">{{ hr.title }} <span class="small-muted fw-normal">× {{ hr.headcount }}</span></div>
+          <div class="small-muted">{{ hr.department.name }} · {{ hr.employment_type|humanize }} · requested by {{ hr.requested_by.full_name if hr.requested_by else '—' }} {{ hr.created_at|date }}
+            {% if hr.target_date %}· target {{ hr.target_date|date }}{% endif %}{% if hr.budget_amount %} · budget {{ hr.budget_amount|money(hr.budget_currency or '') }}{% endif %}</div>
+          <p class="small mt-2 mb-1">{{ hr.justification }}</p>
+          {% if hr.decision_notes %}<div class="small"><span class="small-muted">Decision note:</span> {{ hr.decision_notes }}</div>{% endif %}
+          {% if hr.jobs %}<div class="small mt-1">Vacancies: {% for j in hr.jobs %}<a href="{{ url_for('jobs.job_detail', job_id=j.id) }}">{{ j.title }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+        </div>
+        <div class="text-end">
+          {{ ui.status(hr.status) }}
+          <div class="d-flex flex-wrap gap-2 justify-content-end mt-2">
+            {% if hr.status == 'pending' and current_user.can('hiring_request.decide') %}
+            <form method="post" action="{{ url_for('jobs.decide_hiring_request', hr_id=hr.id) }}" class="d-flex flex-wrap gap-2">{{ ui.csrf() }}
+              <input class="form-control form-control-sm" name="notes" placeholder="Note (required to reject/return)" maxlength="2000" aria-label="Decision note" style="max-width:240px">
+              <button class="btn btn-sm btn-success" name="decision" value="approved" data-loading>Approve</button>
+              <button class="btn btn-sm btn-light" name="decision" value="revision_requested" data-loading>Return</button>
+              <button class="btn btn-sm btn-outline-danger" name="decision" value="rejected" data-confirm="Reject this hiring request?">Reject</button>
+            </form>
+            {% endif %}
+            {% if hr.status == 'approved' and current_user.can('job.manage') %}
+              <a class="btn btn-sm btn-primary" href="{{ url_for('jobs.new_job', hiring_request=hr.id) }}"><i class="bi bi-plus"></i> Create vacancy</a>
+            {% endif %}
+            {% if hr.status == 'revision_requested' and (hr.requested_by_id == current_user.id or current_user.can('hiring_request.decide')) %}
+              <button class="btn btn-sm btn-light" data-bs-toggle="collapse" data-bs-target="#rev{{ hr.id }}">Revise & resubmit</button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% if hr.status == 'revision_requested' %}
+      <div class="collapse mt-3" id="rev{{ hr.id }}"><form method="post" action="{{ url_for('jobs.resubmit_hiring_request', hr_id=hr.id) }}">{{ ui.csrf() }}
+        {{ request_fields(hr) }}<div class="mt-2 text-end">{{ ui.submit('Resubmit', 'btn-primary btn-sm') }}</div></form></div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {{ ui.pagination(page, 'jobs.hiring_requests') }}
+  {% else %}{{ ui.empty('bi-clipboard-plus', 'No hiring requests', 'Raise a request to plan new headcount.') }}{% endif %}
+</div>
+{% endblock %}

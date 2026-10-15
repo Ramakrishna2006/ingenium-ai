@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Training{% endblock %}
+{% block content %}
+{{ ui.page_header('Training', 'Training assignments for new and onboarding employees. Assign training from an employee’s profile.', [('Dashboard', url_for('main.dashboard')), ('Training', None)]) }}
+<div class="row g-3 mb-3">
+  <div class="col-sm-4">{{ ui.kpi('bi-journal', counts.get('assigned', 0), 'Assigned', 'amber', url_for('onboarding.training', status='assigned')) }}</div>
+  <div class="col-sm-4">{{ ui.kpi('bi-play-circle', counts.get('in_progress', 0), 'In progress', 'indigo', url_for('onboarding.training', status='in_progress')) }}</div>
+  <div class="col-sm-4">{{ ui.kpi('bi-patch-check', counts.get('completed', 0), 'Completed', 'teal', url_for('onboarding.training', status='completed')) }}</div>
+</div>
+<div class="card">
+  <div class="card-header"><form class="d-flex gap-2 align-items-center" method="get">
+    <label class="small-muted" for="tr-status">Status</label>
+    <select class="form-select form-select-sm w-auto" id="tr-status" name="status" data-autosubmit><option value="">All</option>
+      {% for s in statuses %}<option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s|humanize }}</option>{% endfor %}</select>
+    <noscript><button class="btn btn-sm btn-light">Filter</button></noscript></form></div>
+  {% if page.items %}
+  <div class="table-responsive"><table class="table table-hover align-middle">
+    <thead><tr><th>Training</th><th>Employee</th><th>Due</th><th>Status</th><th>Completed</th></tr></thead>
+    <tbody>{% for t in page.items %}
+      {% set overdue = t.status != 'completed' and t.due_date and t.due_date < today %}
+      <tr><td><div class="fw-semibold">{{ t.title }}{% if t.is_mandatory %} <span class="badge text-bg-indigo">Mandatory</span>{% endif %}</div>{% if t.resource_url %}<a class="small" href="{{ t.resource_url }}" target="_blank" rel="noopener noreferrer">Material</a>{% endif %}</td>
+        <td><a class="row-link" href="{{ url_for('employees.profile', employee_id=t.employee_id) }}">{{ t.employee.user.full_name }}</a></td>
+        <td class="small {% if overdue %}text-danger fw-semibold{% endif %}">{{ t.due_date|date }}</td>
+        <td>{{ ui.status(t.status) }}</td><td class="small-muted">{{ t.completed_at|date }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {{ ui.pagination(page, 'onboarding.training') }}
+  {% else %}{{ ui.empty('bi-mortarboard', 'No training assignments', 'Open an employee profile to assign training.', url_for('employees.directory'), 'Employee directory') }}{% endif %}
+</div>
+{% endblock %}

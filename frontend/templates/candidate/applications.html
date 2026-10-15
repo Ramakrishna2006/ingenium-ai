@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}My applications{% endblock %}
+{% block content %}
+{% call ui.page_header('My applications', 'Every application and where it stands') %}
+  <a class="btn btn-primary" href="{{ url_for('careers.list_jobs') }}"><i class="bi bi-search me-1"></i>Find more roles</a>
+{% endcall %}
+<div class="card">
+  {% if page.items %}
+  <div class="table-responsive"><table class="table table-hover align-middle">
+    <thead><tr><th scope="col">Role</th><th scope="col">Department</th><th scope="col">Applied</th><th scope="col">Last update</th><th scope="col">Status</th></tr></thead>
+    <tbody>
+      {% for a in page.items %}
+      <tr><td><a class="row-link" href="{{ url_for('candidate.application_detail', app_id=a.id) }}">{{ a.job.title }}</a></td>
+        <td>{{ a.job.department.name }}</td><td>{{ a.submitted_at|date }}</td><td class="small-muted">{{ a.status_changed_at|dt }}</td>
+        <td>{{ ui.status(a.status, a.status_label) }}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+  {{ ui.pagination(page, 'candidate.applications') }}
+  {% else %}{{ ui.empty('bi-send', 'No applications yet', 'Browse open roles and apply with your resume.', url_for('careers.list_jobs'), 'Browse jobs') }}{% endif %}
+</div>
+{% endblock %}

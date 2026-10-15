@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Interviews{% endblock %}
+{% block content %}
+{% call ui.page_header('Interviews', 'Scheduled conversations, grouped by day in your organisation’s time zone.', [('Dashboard', url_for('main.dashboard')), ('Interviews', None)]) %}
+  {% if current_user.can('interview.schedule') %}<a class="btn btn-light" href="{{ url_for('applications.pipeline') }}"><i class="bi bi-calendar-plus me-1"></i>Schedule from shortlist</a>{% endif %}
+{% endcall %}
+
+<ul class="nav nav-pills mb-3 gap-1" role="tablist" aria-label="Interview views">
+  {% for key, label in [('upcoming', 'Upcoming'), ('mine', 'Assigned to me'), ('past', 'Past')] %}
+  <li class="nav-item"><a class="nav-link {% if view == key %}active{% endif %}" {% if view == key %}aria-current="page"{% endif %} href="{{ url_for('interviews.calendar', view=key) }}">{{ label }}</a></li>
+  {% endfor %}
+</ul>
+
+{% if days %}
+<div class="d-grid gap-3">
+  {% for day, items in days %}
+  <div class="card">
+    <div class="card-header d-flex justify-content-between"><span><i class="bi bi-calendar3 me-2"></i>{{ day }}</span><span class="small-muted">{{ items|length }} interview{{ 's' if items|length != 1 }}</span></div>
+    <ul class="list-group list-group-flush">
+      {% for iv in items %}
+      <li class="list-group-item d-flex flex-wrap gap-3 align-items-center">
+        <div class="text-center" style="min-width:84px">
+          <div class="fw-bold fs-5">{{ iv.scheduled_at|dt('%H:%M') }}</div>
+          <div class="small-muted">{{ iv.duration_minutes }} min</div>
+        </div>
+        <div class="flex-grow-1">
+          <a class="row-link fw-semibold text-decoration-none" href="{{ url_for('interviews.detail', interview_id=iv.id) }}">{{ iv.application.candidate.user.full_name }} — {{ iv.kind_label }}</a>
+          <div class="small-muted">{{ iv.application.job.title }} · {{ iv.assignments|map(attribute='interviewer.full_name')|join(', ') }}</div>
+          <div class="small-muted">Participant time: {{ iv.scheduled_at|dt('%d %b, %H:%M %Z', iv.timezone) }}
+            {% if iv.meeting_link %}· <i class="bi bi-camera-video"></i> Online{% elif iv.location %}· <i class="bi bi-geo-alt"></i> {{ iv.location }}{% endif %}</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          {% if current_user.id in iv.interviewer_ids %}<span class="badge text-bg-indigo">You’re on the panel</span>{% endif %}
+          {{ ui.status(iv.status) }}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">{{ ui.empty('bi-calendar-event', 'No interviews here', 'Interviews appear once a recruiter schedules them for a shortlisted application.' if view != 'past' else 'Completed and past interviews will be listed here.') }}</div>
+{% endif %}
+{% endblock %}

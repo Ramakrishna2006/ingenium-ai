@@ -1,0 +1,29 @@
+{% extends "auth/_layout.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Create account{% endblock %}
+{% block side_title %}Apply once. Track everything.{% endblock %}
+{% block form %}
+<h1 class="h3 fw-bold mb-1">Create your candidate account</h1>
+<p class="small-muted mb-4">Staff accounts are created by administrators.</p>
+<form method="post">
+  {{ ui.csrf() }}
+  <div class="mb-3"><label class="form-label" for="full_name">Full name</label>
+    <input class="form-control" id="full_name" name="full_name" required minlength="2" maxlength="150" autocomplete="name" value="{{ form.full_name or '' }}"></div>
+  <div class="mb-3"><label class="form-label" for="email">Email</label>
+    <input class="form-control" type="email" id="email" name="email" required autocomplete="email" value="{{ form.email or '' }}"></div>
+  <div class="row g-2 mb-1">
+    <div class="col-sm-6"><label class="form-label" for="password">Password</label>
+      <input class="form-control" type="password" id="password" name="password" required minlength="10" autocomplete="new-password" aria-describedby="pw-help"></div>
+    <div class="col-sm-6"><label class="form-label" for="confirm_password">Confirm</label>
+      <input class="form-control" type="password" id="confirm_password" name="confirm_password" required minlength="10" autocomplete="new-password"></div>
+  </div>
+  <p id="pw-help" class="form-text mb-3">At least 10 characters with letters and numbers.</p>
+  <div class="form-check mb-4">
+    <input class="form-check-input" type="checkbox" id="consent" name="consent" required {% if form.consent %}checked{% endif %}>
+    <label class="form-check-label small" for="consent">I have read the <a href="{{ url_for('main.privacy') }}" target="_blank" rel="noopener">privacy notice</a>
+      and agree to my data being processed for recruitment.</label>
+  </div>
+  {{ ui.submit('Create account', 'btn-primary w-100 py-2', 'bi-person-plus') }}
+</form>
+<p class="small-muted mt-4 mb-0">Already registered? <a href="{{ url_for('auth.login') }}">Sign in</a></p>
+{% endblock %}

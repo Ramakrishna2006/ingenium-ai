@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Vacancies{% endblock %}
+{% block content %}
+{% call ui.page_header('Vacancies', 'Create, publish, pause and close job openings') %}
+  {% if current_user.can('clustering.view') %}<a class="btn btn-light" href="{{ url_for('jobs.clusters') }}"><i class="bi bi-diagram-3 me-1"></i>Job clusters</a>{% endif %}
+  {% if current_user.can('job.manage') %}<a class="btn btn-primary" href="{{ url_for('jobs.new_job') }}"><i class="bi bi-plus-lg me-1"></i>New vacancy</a>{% endif %}
+{% endcall %}
+<div class="card">
+  <form class="card-header row g-2 align-items-end" method="get" role="search">
+    <div class="col-md-4"><label class="form-label small" for="q">Search</label><input id="q" class="form-control form-control-sm" name="q" value="{{ filters.q }}" placeholder="Job title"></div>
+    <div class="col-md-3"><label class="form-label small" for="status">Status</label>
+      <select id="status" class="form-select form-select-sm" name="status"><option value="">Any</option>
+        {% for s in statuses %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s|humanize }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label class="form-label small" for="department">Department</label>
+      <select id="department" class="form-select form-select-sm" name="department"><option value="">Any</option>
+        {% for d in departments %}<option value="{{ d.id }}" {% if filters.department == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+    <div class="col-md-1"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="mine" value="1" id="mine" {% if filters.mine %}checked{% endif %}><label class="form-check-label small" for="mine">Mine</label></div></div>
+    <div class="col-md-1 d-grid"><button class="btn btn-sm btn-primary" type="submit">Filter</button></div>
+  </form>
+  {% if page.items %}
+  <div class="table-responsive"><table class="table table-hover align-middle">
+    <thead><tr><th scope="col">Vacancy</th><th scope="col">Department</th><th scope="col">Type</th><th scope="col">Applications</th><th scope="col">Deadline</th><th scope="col">Status</th></tr></thead>
+    <tbody>
+      {% for job in page.items %}
+      <tr>
+        <td><a class="row-link" href="{{ url_for('jobs.job_detail', job_id=job.id) }}">{{ job.title }}</a>
+          <div class="small-muted">{{ job.location or '—' }}{% if job.recruiter %} · {{ job.recruiter.full_name }}{% endif %}</div></td>
+        <td>{{ job.department.name }}</td><td>{{ job.employment_type_label }}</td>
+        <td><a href="{{ url_for('applications.pipeline', job=job.id) }}">{{ counts.get(job.id, 0) }}</a></td>
+        <td>{{ job.application_deadline|date }}</td><td>{{ ui.status(job.status) }}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+  {{ ui.pagination(page, 'jobs.manage_list') }}
+  {% else %}{{ ui.empty('bi-briefcase', 'No vacancies found', 'Adjust the filters or create a new vacancy.', url_for('jobs.new_job') if current_user.can('job.manage') else None, 'New vacancy') }}{% endif %}
+</div>
+{% endblock %}

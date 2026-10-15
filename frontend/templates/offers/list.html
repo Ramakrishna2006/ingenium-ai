@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Offers{% endblock %}
+{% block content %}
+{{ ui.page_header('Offers', 'Draft, approve and track employment offers.', [('Dashboard', url_for('main.dashboard')), ('Offers', None)]) }}
+
+{% if ready %}
+<div class="card border-success mb-3">
+  <div class="card-header text-success"><i class="bi bi-envelope-plus me-1"></i>Approved for offer — {{ ready|length }} awaiting an offer</div>
+  <ul class="list-group list-group-flush">
+    {% for a in ready %}
+    <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div><span class="fw-semibold">{{ a.candidate.user.full_name }}</span> <span class="small-muted">· {{ a.job.title }}</span></div>
+      <a class="btn btn-sm btn-success" href="{{ url_for('offers.new', app_id=a.id) }}">Create offer</a>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">
+    <form class="d-flex flex-wrap gap-2 align-items-center" method="get">
+      <label class="small-muted" for="status-filter">Status</label>
+      <select class="form-select form-select-sm w-auto" id="status-filter" name="status" data-autosubmit>
+        <option value="">All</option>
+        {% for k, v in labels.items() %}<option value="{{ k }}" {% if status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select>
+      <noscript><button class="btn btn-sm btn-light">Filter</button></noscript>
+    </form>
+  </div>
+  {% if page.items %}
+  <div class="table-responsive"><table class="table table-hover align-middle">
+    <thead><tr><th>Candidate</th><th>Designation</th><th>Department</th><th class="text-end">Salary</th><th>Joining</th><th>Status</th><th>Updated</th></tr></thead>
+    <tbody>
+      {% for o in page.items %}
+      <tr>
+        <td><a class="row-link" href="{{ url_for('offers.detail', offer_id=o.id) }}">{{ o.application.candidate.user.full_name }}</a></td>
+        <td>{{ o.designation }} <span class="small-muted">v{{ o.version }}</span></td>
+        <td>{{ o.department.name }}</td>
+        <td class="text-end">{{ o.salary|money(o.currency) }}</td>
+        <td>{{ o.joining_date|date }}</td>
+        <td>{{ ui.status(o.status, o.status_label) }}</td>
+        <td class="small-muted">{{ o.updated_at|dt }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {{ ui.pagination(page, 'offers.list_offers') }}
+  {% else %}
+    {{ ui.empty('bi-envelope-paper', 'No offers yet', 'Offers are created after a hiring manager approves an application for offer.') }}
+  {% endif %}
+</div>
+{% endblock %}

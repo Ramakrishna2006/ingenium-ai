@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ app.candidate.user.full_name }} · {{ app.job.title }}{% endblock %}
+{% block content %}
+{% set cand = app.candidate %}
+{% call ui.page_header(cand.user.full_name, 'Applied for ' ~ app.job.title ~ ' on ' ~ (app.submitted_at|date), [('Pipeline', url_for('applications.pipeline')), (app.job.title, url_for('jobs.job_detail', job_id=app.job_id)), (cand.user.full_name, None)]) %}
+  {{ ui.status(app.status, app.status_label) }}
+  {% if not limited %}<a class="btn btn-light" href="{{ url_for('candidates.profile', candidate_id=cand.id) }}"><i class="bi bi-person me-1"></i>Candidate profile</a>{% endif %}
+{% endcall %}
+
+<div class="row g-3">
+  <div class="col-xl-8 d-grid gap-3 align-content-start">
+    {# ---------------- Screening evidence ---------------- #}
+    <div class="card" id="screening">
+      <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span><i class="bi bi-clipboard-data me-1"></i>Screening evidence</span>
+        {% if can_screen %}
+        <form method="post" action="{{ url_for('applications.screen', app_id=app.id) }}" class="d-flex gap-2">{{ ui.csrf() }}
+          <button class="btn btn-sm btn-light" name="use_ai" value="0" data-loading>Rule-based only</button>
+          <button class="btn btn-sm btn-primary" name="use_ai" value="1" data-loading data-loading-text="Analysing…"><i class="bi bi-stars me-1"></i>{{ 'Re-run' if screening else 'Run' }} with AI</button>
+        </form>{% endif %}
+      </div>
+      <div class="card-body">
+      {% if screening %}
+        <div class="row g-3 mb-3">
+          <div class="col-sm-4"><div class="small-muted">Required-skill overlap</div><div class="fs-4 fw-bold">{{ screening.skill_overlap|pct }}</div>
+            <div class="meter"><span style="width: {{ screening.skill_overlap or 0 }}%"></span></div></div>
+          <div class="col-sm-4"><div class="small-muted">Resume ↔ job text similarity</div><div class="fs-4 fw-bold">{{ '%.2f'|format(screening.text_similarity) if screening.text_similarity is not none else '—' }}</div><div class="small-muted">TF-IDF cosine, 0–1</div></div>
+          <div class="col-sm-4"><div class="small-muted">Analysis</div><div class="small">{{ screening.created_at|dt }}<br>{{ screening.source }} · {{ screening.analysis_version }}</div></div>
+        </div>
+        <p class="small">{{ screening.experience_summary }}</p>
+        <h3 class="h6 fw-bold mt-3">Skill evidence</h3>
+        {% for e in screening.evidence %}
+          <div class="mb-1"><span class="chip {{ {'evidenced': 'match', 'claimed': 'claimed', 'not_evidenced': 'missing'}[e.status] }}">
+            <i class="bi {{ {'evidenced': 'bi-check2', 'claimed': 'bi-question', 'not_evidenced': 'bi-x'}[e.status] }}"></i>{{ e.skill }}</span>
+            <span class="small-muted">{{ e.status|humanize }}</span></div>
+          {% if e.snippet and e.status == 'evidenced' %}<div class="evidence">{{ e.snippet }}</div>{% endif %}
+          {% if e.ai_note %}<div class="evidence" style="border-left-color:#5eead4"><span class="small fw-semibold">AI note:</span> {{ e.ai_note }}</div>{% endif %}
+        {% endfor %}
+        {% if screening.ai_summary %}
+        <div class="ai-box mt-3"><div class="ai-label mb-1"><i class="bi bi-stars"></i> AI summary · {{ screening.ai_model }}</div>
+          <div class="small prose-pre">{{ screening.ai_summary }}</div>
+          <div class="small-muted mt-2">Generated from resume text with contact details removed. Verify before relying on it.</div></div>
+        {% elif screening.ai_error %}<div class="alert alert-warning small mt-3 mb-0"><i class="bi bi-cpu me-1"></i>AI summary unavailable: {{ screening.ai_error }} Rule-based evidence above is still valid.</div>{% endif %}
+        {% if screening.verification_questions %}
+        <h3 class="h6 fw-bold mt-3">Suggested verification questions</h3>
+        <ol class="small mb-0">{% for q in screening.verification_questions %}<li>{{ q }}</li>{% endfor %}</ol>
+        {% endif %}
+        {% if screening.reviewed_at %}
+        <div class="alert alert-info small mt-3 mb-0"><strong>Reviewer correction</strong> by {{ screening.reviewed_by.full_name if screening.reviewed_by else '—' }} ({{ screening.reviewed_at|dt }}):
+          matched {{ (screening.effective_matched or [])|join(', ') or '—' }}; missing {{ (screening.effective_missing or [])|join(', ') or '—' }}. <em>{{ screening.reviewer_notes }}</em></div>
+        {% endif %}
+        {% if can_screen %}
+        <details class="mt-3"><summary class="small fw-semibold">Correct or override these findings</summary>
+          <form method="post" action="{{ url_for('applications.override', screening_id=screening.id) }}" class="mt-2">{{ ui.csrf() }}
+            <div class="row g-2">
+              <div class="col-md-6"><label class="form-label small" for="ov-m">Matched skills</label><input class="form-control form-control-sm" id="ov-m" name="matched_skills" value="{{ (screening.effective_matched or [])|join(', ') }}"></div>
+              <div class="col-md-6"><label class="form-label small" for="ov-x">Missing / unverified</label><input class="form-control form-control-sm" id="ov-x" name="missing_skills" value="{{ (screening.effective_missing or [])|join(', ') }}"></div>
+              <div class="col-12"><label class="form-label small" for="ov-n">Reviewer note (required)</label><textarea class="form-control form-control-sm" id="ov-n" name="reviewer_notes" rows="2" required minlength="3"></textarea></div>
+            </div>
+            <button class="btn btn-sm btn-primary mt-2" type="submit" data-loading>Save correction</button>
+          </form></details>
+        {% endif %}
+      {% else %}
+        {{ ui.empty('bi-clipboard-data', 'Not screened yet', 'Run screening to compare documented skills with this job’s requirements.' if can_screen else 'A recruiter has not screened this application yet.') }}
+      {% endif %}
+      </div>
+    </div>
+
+    {# ---------------- Interviews ---------------- #}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">Interviews
+        {% if can_schedule %}<a class="btn btn-sm btn-primary" href="{{ url_for('interviews.new', app_id=app.id) }}"><i class="bi bi-calendar-plus me-1"></i>Schedule</a>{% endif %}</div>
+      {% if app.interviews %}
+      <ul class="list-group list-group-flush">
+        {% for iv in app.interviews %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div><a class="fw-semibold text-decoration-none" href="{{ url_for('interviews.detail', interview_id=iv.id) }}">{{ iv.kind_label }} interview</a>
+            <div class="small-muted">{{ iv.scheduled_at|dt('%d %b %Y, %H:%M %Z', iv.timezone) }} · {{ iv.assignments|map(attribute='interviewer.full_name')|join(', ') }} · {{ iv.feedback|length }} scorecard(s)</div></div>
+          {{ ui.status(iv.status) }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<div class="card-body small-muted">{% if app.status in ('shortlisted',) %}Shortlisted — ready to schedule interviews.{% else %}Interviews can be scheduled once the application is shortlisted.{% endif %}</div>{% endif %}
+    </div>
+
+    {# ---------------- Decisions ---------------- #}
+    <div class="card" id="decision">
+      <div class="card-header">Recommendations & hiring decision</div>
+      <div class="card-body">
+        {% if app.decisions %}
+        <ul class="tf-timeline mb-3">
+          {% for d in app.decisions %}
+          <li class="{% if d.decision in ('approve','reject') %}done{% endif %}"><div class="fw-semibold">{{ d.decision_label }} <span class="small-muted fw-normal">— {{ d.decided_by.full_name if d.decided_by else '—' }}, {{ d.created_at|dt }}</span></div>
+            <div class="small">{{ d.rationale }}</div></li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if (can_recommend or can_final) and app.status not in ('hired','rejected','withdrawn','offer_declined') %}
+        <form method="post" action="{{ url_for('applications.decision', app_id=app.id) }}">{{ ui.csrf() }}
+          <div class="row g-2">
+            <div class="col-md-4"><label class="form-label small" for="decision-sel">Decision</label>
+              <select class="form-select form-select-sm" id="decision-sel" name="decision" required>
+                {% if can_recommend %}<option value="recommend_hire">Recommend hire</option><option value="recommend_reject">Recommend not progressing</option>{% endif %}
+                {% if can_final and app.status == 'interviewing' %}<option value="approve">Approve for offer (final)</option><option value="reject">Do not progress (final)</option>{% endif %}
+              </select></div>
+            <div class="col-md-8"><label class="form-label small" for="rationale">Rationale (job-related evidence)</label>
+              <textarea class="form-control form-control-sm" id="rationale" name="rationale" rows="2" required minlength="10" maxlength="4000"></textarea></div>
+          </div>
+          <button class="btn btn-sm btn-primary mt-2" type="submit" data-confirm="Record this decision? It becomes part of the permanent hiring record.">Record</button>
+        </form>
+        {% elif not app.decisions %}<p class="small-muted mb-0">No decisions recorded yet.</p>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4 d-grid gap-3 align-content-start">
+    {% if can_review and manual_options %}
+    <div class="card"><div class="card-header">Review status</div><div class="card-body">
+      <form method="post" action="{{ url_for('applications.change_status', app_id=app.id) }}">{{ ui.csrf() }}
+        <label class="form-label small" for="status">Move to</label>
+        <select class="form-select form-select-sm mb-2" id="status" name="status">
+          {% for s in manual_options %}<option value="{{ s }}">{{ labels[s] }}</option>{% endfor %}</select>
+        <label class="form-label small" for="reason">Reason <span class="small-muted">(required for hold / not progressing; internal)</span></label>
+        <textarea class="form-control form-control-sm mb-2" id="reason" name="reason" rows="2" maxlength="2000"></textarea>
+        <button class="btn btn-sm btn-primary w-100" type="submit" data-confirm="Change the status of this application? The candidate will be notified of candidate-visible changes.">Update status</button>
+      </form>
+    </div></div>
+    {% endif %}
+
+    {% if can_offer %}
+    <div class="card border-success"><div class="card-body">
+      <h2 class="h6 fw-bold">Approved for offer</h2>
+      <a class="btn btn-success w-100" href="{{ url_for('offers.new', app_id=app.id) }}"><i class="bi bi-envelope-paper me-1"></i>Create offer</a>
+    </div></div>
+    {% endif %}
+    {% if app.offers and current_user.can('offer.view') %}
+    <div class="card"><div class="card-header">Offers</div><ul class="list-group list-group-flush">
+      {% for o in app.offers %}<li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('offers.detail', offer_id=o.id) }}">{{ o.designation }} v{{ o.version }}</a>{{ ui.status(o.status, o.status_label) }}</li>{% endfor %}
+    </ul></div>
+    {% endif %}
+
+    <div class="card"><div class="card-header">Candidate</div><div class="card-body small">
+      {% if cand.headline %}<div class="fw-semibold mb-1">{{ cand.headline }}</div>{% endif %}
+      <div class="mb-2"><span class="small-muted">Experience:</span> {{ cand.years_experience ~ ' years' if cand.years_experience is not none else 'Not stated' }}</div>
+      <div class="mb-2">{{ ui.skills(cand.skills) }}</div>
+      {% if not limited %}
+        <div><i class="bi bi-envelope me-1"></i>{{ cand.user.email }}</div>
+        {% if cand.phone %}<div><i class="bi bi-telephone me-1"></i>{{ cand.phone }}</div>{% endif %}
+      {% else %}<div class="small-muted"><i class="bi bi-eye-slash me-1"></i>Contact details hidden for interview-only access.</div>{% endif %}
+      {% if app.resume %}<a class="btn btn-sm btn-light mt-3" href="{{ url_for('files.resume', resume_id=app.resume.id) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text me-1"></i>Open resume</a>{% endif %}
+      {% if app.cover_letter %}<details class="mt-3"><summary class="fw-semibold">Cover note</summary><p class="prose-pre mt-2 mb-0">{{ app.cover_letter }}</p></details>{% endif %}
+    </div></div>
+
+    <div class="card"><div class="card-header">History</div><div class="card-body">
+      <ol class="tf-timeline">
+        {% for e in app.events %}
+        <li class="done"><div class="small fw-semibold">{{ labels.get(e.to_status, e.to_status) }}</div>
+          <div class="small-muted">{{ e.created_at|dt }}{% if e.actor %} · {{ e.actor.full_name }}{% endif %}</div>
+          {% if e.reason %}<div class="small">{{ e.reason }}</div>{% endif %}</li>
+        {% endfor %}
+      </ol>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

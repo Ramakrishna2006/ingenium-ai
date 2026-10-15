@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Offer{% endblock %}
+{% block content %}
+{% call ui.page_header('Your offer: ' ~ offer.designation, offer.department.name, [('My applications', url_for('candidate.applications')), ('Offer', None)]) %}
+  {{ ui.status(offer.status, offer.status_label) }}
+{% endcall %}
+<div class="row g-3">
+  <div class="col-lg-7"><div class="card"><div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-5 small-muted fw-normal">Designation</dt><dd class="col-sm-7 fw-semibold">{{ offer.designation }}</dd>
+      <dt class="col-sm-5 small-muted fw-normal">Department</dt><dd class="col-sm-7">{{ offer.department.name }}</dd>
+      <dt class="col-sm-5 small-muted fw-normal">Annual compensation</dt><dd class="col-sm-7 fw-semibold">{{ offer.salary|money(offer.currency) }}</dd>
+      <dt class="col-sm-5 small-muted fw-normal">Joining date</dt><dd class="col-sm-7">{{ offer.joining_date|date }}</dd>
+      <dt class="col-sm-5 small-muted fw-normal">Respond by</dt><dd class="col-sm-7">{{ offer.expires_on|date }}</dd>
+    </dl>
+    {% if offer.terms %}<hr><h2 class="h6 fw-bold">Terms</h2><div class="small prose-pre">{{ offer.terms }}</div>{% endif %}
+    {% if offer.pdf_stored_filename %}<a class="btn btn-light mt-3" href="{{ url_for('files.offer_letter', offer_id=offer.id) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf me-1"></i>Download offer letter (PDF)</a>{% endif %}
+  </div></div></div>
+  <div class="col-lg-5">
+    {% if offer.status == 'approved' %}
+    <div class="card border-success"><div class="card-body">
+      <h2 class="h6 fw-bold">Accept your offer</h2>
+      <p class="small-muted">Accepting creates your employee record and opens your onboarding checklist.</p>
+      <form method="post" action="{{ url_for('candidate.respond_offer', offer_id=offer.id) }}">{{ ui.csrf() }}
+        <input type="hidden" name="response" value="accept">
+        {{ ui.submit('Accept offer', 'btn-success w-100', 'bi-check-circle', confirm='Accept this offer? This confirms you will join on ' ~ (offer.joining_date|date) ~ '.') }}
+      </form>
+      <hr>
+      <form method="post" action="{{ url_for('candidate.respond_offer', offer_id=offer.id) }}">{{ ui.csrf() }}
+        <input type="hidden" name="response" value="decline">
+        <label class="form-label small" for="reason">Declining? Tell us why (optional)</label>
+        <textarea class="form-control mb-2" id="reason" name="reason" rows="2" maxlength="2000"></textarea>
+        {{ ui.submit('Decline offer', 'btn-outline-danger w-100', confirm='Decline this offer? This cannot be undone.') }}
+      </form>
+    </div></div>
+    {% elif offer.status == 'accepted' %}
+      <div class="alert alert-success">You accepted this offer on {{ offer.responded_at|dt }}. <a href="{{ url_for('portal.onboarding') }}">Go to onboarding</a></div>
+    {% else %}
+      <div class="alert alert-secondary">This offer is {{ offer.status_label|lower }}.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

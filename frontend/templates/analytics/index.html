@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+{{ ui.page_header('Recruitment & onboarding analytics', 'Metrics are computed from recorded data only. Where there is not enough data, values show “—”.', [('Dashboard', url_for('main.dashboard')), ('Analytics', None)]) }}
+
+{# ---------- Filters (one row, above the charts) ---------- #}
+<form class="card mb-3" method="get"><div class="card-body row g-2 align-items-end">
+  <div class="col-sm-6 col-lg-2"><label class="form-label small" for="f-start">From</label><input class="form-control form-control-sm" type="date" id="f-start" name="start" value="{{ start.isoformat() }}"></div>
+  <div class="col-sm-6 col-lg-2"><label class="form-label small" for="f-end">To</label><input class="form-control form-control-sm" type="date" id="f-end" name="end" value="{{ end.isoformat() }}"></div>
+  <div class="col-sm-6 col-lg-3"><label class="form-label small" for="f-dept">Department</label>
+    <select class="form-select form-select-sm" id="f-dept" name="department"><option value="">All departments</option>{% for d in departments %}<option value="{{ d.id }}" {% if dept == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+  <div class="col-sm-6 col-lg-3 d-flex gap-1 flex-wrap">
+    {% for days in (30, 90, 365) %}<a class="btn btn-sm btn-light" href="{{ url_for('analytics.index', days=days, department=dept or '') }}">Last {{ days }}d</a>{% endfor %}</div>
+  <div class="col-lg-2"><button class="btn btn-sm btn-primary w-100">Apply</button></div>
+</div></form>
+
+{% set acc = m.offers.acceptance_rate %}
+{% set tth = m.time_to_hire %}
+<div class="row g-3 mb-3">
+  <div class="col-sm-6 col-xl">{{ ui.kpi('bi-send', m.applications.total, 'Applications in range', 'indigo') }}</div>
+  <div class="col-sm-6 col-xl">{{ ui.kpi('bi-briefcase', m.open_vacancies, 'Open vacancies (now)', 'teal') }}</div>
+  <div class="col-sm-6 col-xl">{{ ui.kpi('bi-envelope-check', acc|pct if acc is not none else None, 'Offer acceptance', 'indigo') }}</div>
+  <div class="col-sm-6 col-xl">{{ ui.kpi('bi-stopwatch', (tth.median_days ~ ' d') if tth else None, 'Median time to hire', 'slate') }}</div>
+  <div class="col-sm-6 col-xl">{{ ui.kpi('bi-alarm', m.onboarding.overdue_tasks, 'Overdue onboarding tasks', 'amber', url_for('onboarding.tasks', overdue=1) if current_user.can('onboarding.manage') else None) }}</div>
+</div>
+
+<div class="row g-3">
+  {# ---------- Volume ---------- #}
+  <div class="col-xl-8"><div class="card h-100">
+    <div class="card-header">Applications per day <span class="small-muted fw-normal">· {{ start|date }} – {{ end|date }}</span></div>
+    <div class="card-body">
+      {% if m.applications.total %}
+      <div class="chart-wrap"><canvas id="chart-volume" role="img" aria-label="Line chart of applications per day"></canvas></div>
+      <details class="mt-2 small"><summary>View as table</summary>
+        <div class="table-responsive" style="max-height:220px"><table class="table table-sm"><thead><tr><th>Date</th><th class="text-end">Applications</th></tr></thead>
+        <tbody>{% for r in m.applications.daily if r.count %}<tr><td>{{ r.date }}</td><td class="text-end">{{ r.count }}</td></tr>{% endfor %}</tbody></table></div></details>
+      {% else %}{{ ui.empty('bi-graph-up', 'No applications in this period') }}{% endif %}
+    </div></div></div>
+
+  {# ---------- Offers ---------- #}
+  <div class="col-xl-4"><div class="card h-100"><div class="card-header">Offer outcomes <span class="small-muted fw-normal">· extended in range</span></div><div class="card-body">
+    {% if m.offers.by_status %}
+      <div class="d-flex align-items-baseline gap-2 mb-2"><span class="fs-2 fw-bold">{{ acc|pct if acc is not none else '—' }}</span><span class="small-muted">accepted of {{ m.offers.decided }} decided</span></div>
+      <ul class="list-unstyled small mb-0">{% for k, v in m.offers.by_status.items() %}<li class="d-flex justify-content-between border-bottom py-1"><span>{{ ui.status(k) }}</span><strong>{{ v }}</strong></li>{% endfor %}</ul>
+    {% else %}{{ ui.empty('bi-envelope-paper', 'No offers extended', 'Acceptance rate needs at least one accepted, declined or expired offer.') }}{% endif %}
+  </div></div></div>
+
+  {# ---------- Funnel ---------- #}
+  <div class="col-xl-6"><div class="card h-100"><div class="card-header">Pipeline conversion</div><div class="card-body">
+    {% if m.applications.total %}
+      <div class="chart-wrap"><canvas id="chart-funnel" role="img" aria-label="Bar chart of applications reaching each pipeline stage"></canvas></div>
+      <details class="mt-2 small"><summary>View as table</summary><table class="table table-sm mb-0"><thead><tr><th>Stage</th><th class="text-end">Applications</th><th class="text-end">Of all applied</th></tr></thead>
+        <tbody>{% for f in m.funnel %}<tr><td>{{ f.label }}</td><td class="text-end">{{ f.count }}</td><td class="text-end">{{ f.conversion|pct }}</td></tr>{% endfor %}</tbody></table></details>
+    {% else %}{{ ui.empty('bi-funnel', 'No pipeline data in this period') }}{% endif %}
+  </div></div></div>
+
+  {# ---------- Vacancies ---------- #}
+  <div class="col-xl-6"><div class="card h-100"><div class="card-header">Vacancies by department <span class="small-muted fw-normal">· all time</span></div><div class="card-body">
+    {% if m.vacancies_by_department %}
+      <div class="chart-wrap"><canvas id="chart-vacancies" role="img" aria-label="Stacked bar chart of published and other vacancies by department"></canvas></div>
+      <details class="mt-2 small"><summary>View as table</summary><table class="table table-sm mb-0"><thead><tr><th>Department</th><th class="text-end">Published</th><th class="text-end">Total</th></tr></thead>
+        <tbody>{% for v in m.vacancies_by_department %}<tr><td>{{ v.department }}</td><td class="text-end">{{ v.published }}</td><td class="text-end">{{ v.total }}</td></tr>{% endfor %}</tbody></table></details>
+    {% else %}{{ ui.empty('bi-building', 'No vacancies yet') }}{% endif %}
+  </div></div></div>
+
+  {# ---------- Interviews ---------- #}
+  <div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-header">Interviews <span class="small-muted fw-normal">· scheduled in range</span></div><div class="card-body small">
+    {% if m.interviews.by_status %}
+      <ul class="list-unstyled mb-3">{% for k, v in m.interviews.by_status.items() %}<li class="d-flex justify-content-between border-bottom py-1"><span>{{ ui.status(k) }}</span><strong>{{ v }}</strong></li>{% endfor %}</ul>
+      <div class="small-muted mb-1">Interviewer recommendations</div>
+      {% for k, v in m.interviews.recommendations.items() %}<div class="d-flex justify-content-between"><span>{{ k|humanize }}</span><strong>{{ v }}</strong></div>{% else %}<span class="small-muted">No scorecards yet.</span>{% endfor %}
+    {% else %}{{ ui.empty('bi-calendar-event', 'No interviews in this period') }}{% endif %}
+  </div></div></div>
+
+  {# ---------- Onboarding ---------- #}
+  <div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-header">Onboarding <span class="small-muted fw-normal">· employees joining in range</span></div><div class="card-body small">
+    {% set ob = m.onboarding %}
+    {% if ob.total_tasks %}
+      <div class="d-flex align-items-baseline gap-2"><span class="fs-2 fw-bold">{{ ob.completion_rate|pct }}</span><span class="small-muted">of {{ ob.total_tasks }} tasks completed</span></div>
+      <div class="progress mb-3" role="progressbar" aria-label="Onboarding completion" aria-valuenow="{{ ob.completion_rate }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ ob.completion_rate }}%"></div></div>
+      {% for k, v in ob.tasks_by_status.items() %}<div class="d-flex justify-content-between"><span>{{ k|humanize }}</span><strong>{{ v }}</strong></div>{% endfor %}
+    {% else %}{{ ui.empty('bi-rocket-takeoff', 'No onboarding tasks for this period') }}{% endif %}
+    {% if ob.employees_by_status %}<hr><div class="small-muted mb-1">Employees by status (all)</div>
+      {% for k, v in ob.employees_by_status.items() %}<div class="d-flex justify-content-between"><span>{{ k|humanize }}</span><strong>{{ v }}</strong></div>{% endfor %}{% endif %}
+  </div></div></div>
+
+  {# ---------- Clusters ---------- #}
+  <div class="col-xl-4"><div class="card h-100"><div class="card-header d-flex justify-content-between">Job clusters {% if current_user.can('clustering.view') %}<a class="small fw-normal" href="{{ url_for('jobs.clusters') }}">Open</a>{% endif %}</div><div class="card-body small">
+    {% if m.clusters and m.clusters.groups %}
+      <div class="small-muted mb-2">Run #{{ m.clusters.run_id }} · silhouette {{ '%.2f'|format(m.clusters.silhouette) if m.clusters.silhouette is not none else '—' }}{% if m.clusters.stale %} · <span class="text-warning">jobs changed since this run</span>{% endif %}</div>
+      {% for g in m.clusters.groups %}<div class="d-flex justify-content-between border-bottom py-1"><span>{{ g.label }}</span><strong>{{ g.size }}</strong></div>{% endfor %}
+    {% else %}{{ ui.empty('bi-diagram-3', 'No clustering run yet') }}{% endif %}
+  </div></div></div>
+
+  {# ---------- AI summary ---------- #}
+  <div class="col-12"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-stars me-1"></i>Narrative summary</span>
+    <form method="post">{{ ui.csrf() }}<input type="hidden" name="start" value="{{ start.isoformat() }}"><input type="hidden" name="end" value="{{ end.isoformat() }}"><input type="hidden" name="department" value="{{ dept or '' }}">
+      <button class="btn btn-sm btn-light" data-loading data-loading-text="Summarising…">Summarise with AI</button></form></div>
+    <div class="card-body">
+      {% if ai_summary %}
+        <div class="ai-box"><div class="ai-label mb-1">AI summary of the figures above</div>
+          <p class="small mb-2">{{ ai_summary.summary }}</p>
+          {% if ai_summary.highlights %}<ul class="small mb-2">{% for h in ai_summary.highlights %}<li>{{ h }}</li>{% endfor %}</ul>{% endif %}
+          {% if ai_summary.caveats %}<div class="small-muted">Caveats: {{ ai_summary.caveats|join('; ') }}</div>{% endif %}</div>
+      {% elif ai_error %}<div class="alert alert-warning small mb-0">AI summary unavailable: {{ ai_error }} All figures above are still accurate.</div>
+      {% else %}<p class="small-muted mb-0">Generates a short narrative from the aggregated numbers only (no candidate data is sent).</p>{% endif %}
+    </div></div></div>
+
+  {# ---------- Definitions ---------- #}
+  <div class="col-12"><details class="card"><summary class="card-header">Metric definitions & limitations</summary><div class="card-body small">
+    <dl class="row mb-0">{% for k, v in m.definitions.items() %}<dt class="col-sm-3">{{ k|humanize }}</dt><dd class="col-sm-9">{{ v }}</dd>{% endfor %}</dl>
+    <p class="small-muted mb-0">Cluster membership, text similarity and skill overlap are separate signals and are never combined into a hiring score.</p>
+  </div></details></div>
+</div>
+
+<script type="application/json" id="analytics-data">{{ {'daily': m.applications.daily, 'funnel': m.funnel, 'vacancies': m.vacancies_by_department}|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+{% endblock %}

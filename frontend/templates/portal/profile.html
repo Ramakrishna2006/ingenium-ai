@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+{{ ui.page_header('My employee profile', 'Your employment details as recorded by HR.', [('My onboarding', url_for('portal.onboarding')), ('My profile', None)]) }}
+<div class="row g-3">
+  <div class="col-lg-7"><div class="card"><div class="card-body">
+    <div class="d-flex align-items-center gap-3 mb-3"><span class="tf-avatar" style="width:56px;height:56px;font-size:1.2rem">{{ emp.user.initials }}</span>
+      <div><div class="fs-5 fw-bold">{{ emp.user.full_name }}</div><div class="small-muted">{{ emp.designation }} · {{ emp.department.name }}</div></div></div>
+    <dl class="row mb-0 small">
+      <dt class="col-5">Employee ID</dt><dd class="col-7"><code>{{ emp.employee_code }}</code></dd>
+      <dt class="col-5">Work email (sign-in)</dt><dd class="col-7">{{ emp.user.email }}</dd>
+      <dt class="col-5">Status</dt><dd class="col-7">{{ ui.status(emp.employment_status, emp.status_label) }}</dd>
+      <dt class="col-5">Employment type</dt><dd class="col-7">{{ emp.employment_type|humanize }}</dd>
+      <dt class="col-5">Manager</dt><dd class="col-7">{{ emp.manager.full_name if emp.manager else 'To be assigned' }}</dd>
+      <dt class="col-5">Work location</dt><dd class="col-7">{{ emp.work_location or '—' }}</dd>
+      <dt class="col-5">Joining date</dt><dd class="col-7">{{ emp.joining_date|date }}</dd>
+      <dt class="col-5">Probation ends</dt><dd class="col-7">{{ emp.probation_end_date|date }}</dd>
+    </dl>
+  </div></div></div>
+  <div class="col-lg-5 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-body small">
+      <h2 class="h6 fw-bold">Need a correction?</h2>
+      <p class="mb-2">Your employment details are maintained by HR. Contact your HR coordinator if anything here is wrong.</p>
+      <a class="btn btn-sm btn-light" href="{{ url_for('auth.change_password') }}"><i class="bi bi-key me-1"></i>Change password</a>
+    </div></div>
+    {% if emp.offer and emp.offer.pdf_stored_filename %}
+    <div class="card"><div class="card-body small">
+      <h2 class="h6 fw-bold">Your offer letter</h2>
+      <a class="btn btn-sm btn-light" href="{{ url_for('files.offer_letter', offer_id=emp.offer_id) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>
+    </div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Departments{% endblock %}
+{% block content %}
+{{ ui.page_header('Departments', 'Organisational units used for vacancies, offers, employees and onboarding templates.', [('Administration', None), ('Departments', None)]) }}
+<div class="row g-3">
+  <div class="col-xl-8"><div class="card">
+    {% if departments %}
+    <div class="table-responsive"><table class="table table-hover align-middle">
+      <thead><tr><th>Department</th><th>Code</th><th>Location</th><th>Head</th><th>Status</th><th></th></tr></thead>
+      <tbody>{% for d in departments %}
+        <tr {% if edit and edit.id == d.id %}class="table-active"{% endif %}><td><div class="fw-semibold">{{ d.name }}</div>{% if d.description %}<div class="small-muted">{{ d.description|truncate(80) }}</div>{% endif %}</td>
+          <td><code>{{ d.code }}</code></td><td class="small">{{ d.location or '—' }}</td><td class="small">{{ d.head.full_name if d.head else '—' }}</td>
+          <td>{{ ui.status('active' if d.is_active else 'archived', 'Active' if d.is_active else 'Inactive') }}</td>
+          <td class="text-end"><a class="btn btn-sm btn-light" href="{{ url_for('admin.departments', edit=d.id) }}">Edit</a></td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}{{ ui.empty('bi-building', 'No departments yet', 'Create your first department to start publishing vacancies.') }}{% endif %}
+  </div></div>
+  <div class="col-xl-4"><div class="card">
+    <div class="card-header d-flex justify-content-between">{{ 'Edit ' ~ edit.name if edit else 'New department' }}{% if edit %}<a class="small" href="{{ url_for('admin.departments') }}">Cancel</a>{% endif %}</div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('admin.update_department', dept_id=edit.id) if edit else url_for('admin.create_department') }}">{{ ui.csrf() }}
+        <label class="form-label small" for="d-name">Name</label>
+        <input class="form-control form-control-sm mb-2" id="d-name" name="name" required minlength="2" maxlength="120" value="{{ edit.name if edit else '' }}">
+        <label class="form-label small" for="d-code">Code</label>
+        <input class="form-control form-control-sm mb-2 text-uppercase" id="d-code" name="code" required minlength="2" maxlength="20" pattern="[A-Za-z0-9_\-]+" value="{{ edit.code if edit else '' }}" placeholder="ENG">
+        <label class="form-label small" for="d-loc">Location</label>
+        <input class="form-control form-control-sm mb-2" id="d-loc" name="location" maxlength="120" value="{{ edit.location if edit and edit.location else '' }}">
+        <label class="form-label small" for="d-head">Department head</label>
+        <select class="form-select form-select-sm mb-2" id="d-head" name="head_user_id"><option value="">— None —</option>{% for u in staff %}<option value="{{ u.id }}" {% if edit and edit.head_user_id == u.id %}selected{% endif %}>{{ u.full_name }} ({{ u.role_label }})</option>{% endfor %}</select>
+        <label class="form-label small" for="d-desc">Description</label>
+        <textarea class="form-control form-control-sm mb-2" id="d-desc" name="description" rows="2" maxlength="2000">{{ edit.description if edit and edit.description else '' }}</textarea>
+        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="d-act" name="is_active" {% if not edit or edit.is_active %}checked{% endif %}><label class="form-check-label small" for="d-act">Active</label></div>
+        <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>{{ 'Save changes' if edit else 'Create department' }}</button>
+      </form>
+    </div></div></div>
+</div>
+{% endblock %}

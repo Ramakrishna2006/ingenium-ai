@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header('Good to see you, ' ~ current_user.full_name.split(' ')[0], current_user.role_label ~ ' workspace') %}
+  {% if current_user.can('job.manage') %}<a class="btn btn-primary" href="{{ url_for('jobs.new_job') }}"><i class="bi bi-plus-lg me-1"></i>New vacancy</a>{% endif %}
+  {% if current_user.can('analytics.view') %}<a class="btn btn-light" href="{{ url_for('analytics.index') }}"><i class="bi bi-bar-chart-line me-1"></i>Analytics</a>{% endif %}
+{% endcall %}
+
+<div class="row g-3 mb-4">
+  {% if 'open_vacancies' in kpis %}<div class="col-6 col-xl-2">{{ ui.kpi('bi-briefcase', kpis.open_vacancies, 'Open vacancies', 'indigo', url_for('jobs.manage_list', status='published')) }}</div>{% endif %}
+  {% if 'applications_30d' in kpis %}<div class="col-6 col-xl-2">{{ ui.kpi('bi-send', kpis.applications_30d, 'Applications (30 days)', 'teal', url_for('applications.pipeline')) }}</div>{% endif %}
+  {% if 'awaiting_review' in kpis %}<div class="col-6 col-xl-2">{{ ui.kpi('bi-hourglass-split', kpis.awaiting_review, 'Awaiting review', 'amber', url_for('applications.pipeline')) }}</div>{% endif %}
+  <div class="col-6 col-xl-2">{{ ui.kpi('bi-calendar-event', kpis.interviews_14d, 'Interviews (14 days)', 'slate', url_for('interviews.calendar')) }}</div>
+  {% if 'offers_pending' in kpis %}<div class="col-6 col-xl-2">{{ ui.kpi('bi-envelope-paper', kpis.offers_pending, 'Offers to approve', 'rose', url_for('offers.list_offers', status='pending_approval')) }}</div>{% endif %}
+  {% if 'onboarding' in kpis %}<div class="col-6 col-xl-2">{{ ui.kpi('bi-rocket-takeoff', kpis.onboarding, 'People onboarding', 'teal', url_for('employees.directory', status='onboarding')) }}</div>{% endif %}
+  {% if 'overdue_tasks' in kpis %}<div class="col-6 col-xl-2">{{ ui.kpi('bi-alarm', kpis.overdue_tasks, 'Overdue onboarding tasks', 'rose', url_for('onboarding.tasks', overdue=1)) }}</div>{% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-8 d-grid gap-3">
+    {% if feedback_due %}
+    <div class="card border-warning">
+      <div class="card-header d-flex align-items-center gap-2"><i class="bi bi-pencil-square text-warning"></i>Scorecards you still owe</div>
+      <ul class="list-group list-group-flush">
+        {% for iv in feedback_due %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span><strong>{{ iv.application.job.title }}</strong> · {{ iv.kind_label }} · {{ iv.scheduled_at|dt }}</span>
+          <a class="btn btn-sm btn-primary" href="{{ url_for('interviews.detail', interview_id=iv.id) }}#feedback">Submit feedback</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if recent_apps is defined %}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">Recent applications
+        <a class="small" href="{{ url_for('applications.pipeline') }}">Open pipeline</a></div>
+      {% if recent_apps %}
+      <div class="table-responsive"><table class="table table-hover align-middle">
+        <thead><tr><th scope="col">Candidate</th><th scope="col">Vacancy</th><th scope="col">Submitted</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+        {% for a in recent_apps %}
+          <tr><td><a class="row-link" href="{{ url_for('applications.detail', app_id=a.id) }}">{{ a.candidate.user.full_name }}</a></td>
+            <td>{{ a.job.title }}</td><td class="small-muted">{{ a.submitted_at|dt('%d %b, %H:%M') }}</td><td>{{ ui.status(a.status, a.status_label) }}</td></tr>
+        {% endfor %}
+        </tbody></table></div>
+      {% else %}{{ ui.empty('bi-inbox', 'No applications yet', 'Applications to your vacancies will appear here.') }}{% endif %}
+    </div>
+    {% endif %}
+
+    {% if awaiting_decision %}
+    <div class="card">
+      <div class="card-header">Awaiting your hiring decision</div>
+      <ul class="list-group list-group-flush">
+        {% for a in awaiting_decision %}
+        <li class="list-group-item d-flex justify-content-between"><span>{{ a.candidate.user.full_name }} — {{ a.job.title }}</span>
+          <a class="btn btn-sm btn-light" href="{{ url_for('applications.detail', app_id=a.id) }}#decision">Review</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-xl-4 d-grid gap-3 align-content-start">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">Upcoming interviews <a class="small" href="{{ url_for('interviews.calendar') }}">Calendar</a></div>
+      {% if upcoming %}
+      <ul class="list-group list-group-flush">
+        {% for iv in upcoming %}
+        <li class="list-group-item">
+          <a class="fw-semibold text-decoration-none" href="{{ url_for('interviews.detail', interview_id=iv.id) }}">{{ iv.application.job.title }}</a>
+          <div class="small-muted">{{ iv.kind_label }} · {{ iv.scheduled_at|dt('%a %d %b, %H:%M') }}</div></li>
+        {% endfor %}
+      </ul>
+      {% else %}{{ ui.empty('bi-calendar2-check', 'Nothing scheduled', 'Your next two weeks are clear.') }}{% endif %}
+    </div>
+
+    {% if my_tasks %}
+    <div class="card"><div class="card-header">My onboarding tasks</div>
+      <ul class="list-group list-group-flush">
+        {% for t in my_tasks %}
+        <li class="list-group-item"><a class="text-decoration-none fw-semibold" href="{{ url_for('employees.profile', employee_id=t.employee_id) }}">{{ t.title }}</a>
+          <div class="small-muted">{{ t.employee.user.full_name }} · due {{ t.due_date|date }} {{ ui.status(t.priority) }}</div></li>
+        {% endfor %}
+      </ul></div>
+    {% endif %}
+
+    {% if cluster_run is defined %}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">Job families <a class="small" href="{{ url_for('jobs.clusters') }}">Explore</a></div>
+      <div class="card-body">
+        {% if cluster_run %}
+          {% for c in cluster_run.clusters[:5] %}
+            <div class="d-flex justify-content-between small mb-2"><span>{{ c.label }}</span><span class="badge text-bg-indigo">{{ c.size }}</span></div>
+          {% endfor %}
+          {% if cluster_stale %}<div class="alert alert-warning small py-2 mb-0 mt-2">Vacancies changed since the last run — recompute to refresh.</div>{% endif %}
+        {% else %}<p class="small-muted mb-0">No clustering run yet.</p>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

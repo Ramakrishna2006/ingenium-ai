@@ -1,0 +1,126 @@
+{% import "_macros.html" as ui with context %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Ingenium AI{% endblock %} · Ingenium AI</title>
+  <link rel="icon" href="{{ url_for('static', filename='images/logo.svg') }}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+{% block body %}
+{% if current_user.is_authenticated %}
+<div class="tf-shell">
+  <aside class="tf-sidebar" id="sidebar" aria-label="Main navigation">
+    {{ ui.brand(url_for('main.dashboard')) }}
+    <nav class="tf-nav">
+      {% for section, items in nav_sections %}
+        <div class="tf-nav-section">{{ section }}</div>
+        {% for label, endpoint, icon, perm in items %}
+          {% set active = current_endpoint == endpoint or (current_endpoint.split('.')[0] == endpoint.split('.')[0] and endpoint.split('.')[1] in ('manage_list','directory','calendar','list_offers','pipeline','tasks') and current_endpoint.split('.')[1] in ('detail','profile','job_detail','new','edit','new_job','edit_job','compare')) %}
+          <a href="{{ url_for(endpoint) }}" class="{% if active %}active{% endif %}" {% if active %}aria-current="page"{% endif %}>
+            <i class="bi {{ icon }}" aria-hidden="true"></i><span>{{ label }}</span></a>
+        {% endfor %}
+      {% endfor %}
+    </nav>
+  </aside>
+  <div class="tf-main">
+    <header class="tf-topbar">
+      <button class="btn btn-light d-lg-none" type="button" data-toggle-sidebar aria-controls="sidebar" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i></button>
+      {% if current_user.is_staff and current_user.can('job.view_internal') %}
+        {% set search_action = url_for('jobs.manage_list') %}{% set search_ph = 'Search vacancies…' %}
+      {% elif current_user.is_staff and current_user.can('interview.view') and not current_user.can('job.view_internal') %}
+        {% set search_action = None %}
+      {% else %}
+        {% set search_action = url_for('careers.list_jobs') %}{% set search_ph = 'Search open jobs…' %}
+      {% endif %}
+      {% if search_action %}
+      <form class="tf-search position-relative d-none d-md-block" action="{{ search_action }}" method="get" role="search">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <label class="visually-hidden" for="global-search">Search</label>
+        <input id="global-search" class="form-control" type="search" name="q" placeholder="{{ search_ph }}" value="{{ request.args.get('q', '') }}">
+      </form>
+      {% endif %}
+      <div class="ms-auto d-flex align-items-center gap-2">
+        {% if current_user.is_staff %}
+        <a class="ai-pill text-decoration-none" id="ai-pill" href="{{ url_for('admin.ai_status') if current_user.can('admin.ai') else '#' }}"
+           data-ai-status-url="{{ url_for('api.ai_status') }}" title="AI service status"><span class="dot"></span><span class="txt">AI: checking…</span></a>
+        {% endif %}
+        <a class="tf-icon-btn" href="{{ url_for('main.notifications') }}" aria-label="Notifications ({{ unread_notifications }} unread)">
+          <i class="bi bi-bell fs-5"></i>{% if unread_notifications %}<span class="tf-dot">{{ unread_notifications if unread_notifications < 100 else '99+' }}</span>{% endif %}</a>
+        <div class="dropdown">
+          <button class="btn btn-link p-0 d-flex align-items-center gap-2 text-decoration-none text-reset" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="tf-avatar">{{ current_user.initials }}</span>
+            <span class="d-none d-sm-block text-start lh-sm"><span class="fw-semibold d-block">{{ current_user.full_name }}</span>
+              <span class="small-muted">{{ current_user.role_label }}</span></span>
+            <i class="bi bi-chevron-down small"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><span class="dropdown-item-text small-muted">{{ current_user.email }}</span></li>
+            {% if current_user.role == 'candidate' %}<li><a class="dropdown-item" href="{{ url_for('candidate.profile') }}"><i class="bi bi-person me-2"></i>My profile</a></li>{% endif %}
+            {% if current_user.role == 'employee' %}<li><a class="dropdown-item" href="{{ url_for('portal.profile') }}"><i class="bi bi-person-vcard me-2"></i>My profile</a></li>{% endif %}
+            <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i class="bi bi-key me-2"></i>Change password</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('main.privacy') }}"><i class="bi bi-shield-check me-2"></i>Privacy notice</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><form method="post" action="{{ url_for('auth.logout') }}">{{ ui.csrf() }}
+              <button class="dropdown-item text-danger" type="submit"><i class="bi bi-box-arrow-right me-2"></i>Sign out</button></form></li>
+          </ul>
+        </div>
+      </div>
+    </header>
+    <main id="main" class="tf-content" tabindex="-1">
+      {% include "_flash.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% else %}
+<nav class="navbar navbar-expand-md tf-public-nav py-3" aria-label="Site">
+  <div class="container">
+    {{ ui.brand(url_for('main.index')) }}
+    <button class="navbar-toggler border-0 text-white" type="button" data-bs-toggle="collapse" data-bs-target="#pubnav" aria-controls="pubnav" aria-expanded="false" aria-label="Toggle navigation"><i class="bi bi-list fs-3"></i></button>
+    <div class="collapse navbar-collapse" id="pubnav">
+      <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('careers.list_jobs') }}">Open roles</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.privacy') }}">Privacy</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login', **{'as': 'employee'}) }}"><i class="bi bi-person-badge me-1" aria-hidden="true"></i>Employee sign in</a></li>
+        <li class="nav-item"><a class="btn btn-teal btn-sm px-3" href="{{ url_for('careers.apply_home') }}"><i class="bi bi-send me-1" aria-hidden="true"></i>Apply for a job</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<main id="main" tabindex="-1">
+  <div class="container pt-3">{% include "_flash.html" %}</div>
+  {% block public %}{% endblock %}
+</main>
+<footer class="py-4 mt-5 border-top bg-white">
+  <div class="container d-flex flex-wrap justify-content-between gap-2 small-muted">
+    <span>© Ingenium AI — recruitment & onboarding platform</span>
+    <span>AI suggestions are always reviewed by people. <a href="{{ url_for('main.privacy') }}">Privacy notice</a></span>
+  </div>
+</footer>
+{% endif %}
+{% endblock %}
+
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h2 class="modal-title fs-5" id="confirmTitle">Please confirm</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body" id="confirmBody">Are you sure?</div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirmOk">Confirm</button></div>
+  </div></div>
+</div>
+<script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

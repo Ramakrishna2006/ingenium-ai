@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Users & roles{% endblock %}
+{% block content %}
+{{ ui.page_header('Users & roles', 'Create staff accounts and manage role assignments. Public sign-ups are always candidates.', [('Administration', None), ('Users & roles', None)]) }}
+<div class="row g-3">
+  <div class="col-xl-8"><div class="card">
+    <div class="card-header"><form class="row g-2 align-items-center" method="get" role="search">
+      <div class="col-sm-6"><label class="visually-hidden" for="uq">Search users</label><input class="form-control form-control-sm" id="uq" type="search" name="q" value="{{ q }}" placeholder="Name or email"></div>
+      <div class="col-sm-4"><label class="visually-hidden" for="ur">Role</label><select class="form-select form-select-sm" id="ur" name="role"><option value="">All roles</option>{% for k, v in roles.items() %}<option value="{{ k }}" {% if role == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+      <div class="col-sm-2"><button class="btn btn-sm btn-primary w-100">Filter</button></div>
+    </form></div>
+    {% if page.items %}
+    <div class="table-responsive"><table class="table align-middle">
+      <thead><tr><th>User</th><th>Last sign-in</th><th style="min-width:330px">Role & access</th></tr></thead>
+      <tbody>{% for u in page.items %}
+        <tr><td><div class="fw-semibold">{{ u.full_name }}{% if u.id == current_user.id %} <span class="small-muted">(you)</span>{% endif %}</div><div class="small-muted">{{ u.email }}</div>
+              {% if not u.active %}<span class="badge text-bg-secondary">Deactivated</span>{% endif %}</td>
+          <td class="small-muted">{{ u.last_login_at|dt }}</td>
+          <td><form method="post" action="{{ url_for('admin.update_user', user_id=u.id) }}" class="d-flex flex-wrap gap-2 align-items-center">{{ ui.csrf() }}
+            <label class="visually-hidden" for="role-{{ u.id }}">Role for {{ u.full_name }}</label>
+            <select class="form-select form-select-sm w-auto" id="role-{{ u.id }}" name="role">
+              {% for k, v in roles.items() %}{% if k != 'employee' or u.role == 'employee' %}<option value="{{ k }}" {% if u.role == k %}selected{% endif %}>{{ v }}</option>{% endif %}{% endfor %}</select>
+            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="active" id="act-{{ u.id }}" {% if u.active %}checked{% endif %}><label class="form-check-label small" for="act-{{ u.id }}">Active</label></div>
+            <button class="btn btn-sm btn-light" data-confirm="Save changes for {{ u.full_name }}? Role or access changes sign them out everywhere.">Save</button>
+          </form></td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {{ ui.pagination(page, 'admin.users') }}
+    {% else %}{{ ui.empty('bi-people', 'No users match') }}{% endif %}
+  </div></div>
+  <div class="col-xl-4"><div class="card"><div class="card-header">Add a staff user</div><div class="card-body">
+    <form method="post" action="{{ url_for('admin.create_user') }}" autocomplete="off">{{ ui.csrf() }}
+      <label class="form-label small" for="nu-name">Full name</label>
+      <input class="form-control form-control-sm mb-2" id="nu-name" name="full_name" required minlength="2" maxlength="150">
+      <label class="form-label small" for="nu-email">Email</label>
+      <input class="form-control form-control-sm mb-2" type="email" id="nu-email" name="email" required maxlength="254">
+      <label class="form-label small" for="nu-role">Role</label>
+      <select class="form-select form-select-sm mb-2" id="nu-role" name="role">{% for k, v in roles.items() if k != 'employee' %}<option value="{{ k }}" {% if k == 'recruiter' %}selected{% endif %}>{{ v }}</option>{% endfor %}</select>
+      <label class="form-label small" for="nu-pw">Temporary password</label>
+      <input class="form-control form-control-sm" type="password" id="nu-pw" name="password" required minlength="10" maxlength="128" autocomplete="new-password">
+      <div class="form-text mb-2">10+ characters with letters and numbers. Share it securely; the user should change it after signing in.</div>
+      <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>Create user</button>
+    </form>
+    <hr><div class="small-muted">The <strong>Employee</strong> role is assigned automatically when a candidate accepts an offer. At least one active Super Admin must always remain.</div>
+  </div></div></div>
+</div>
+{% endblock %}

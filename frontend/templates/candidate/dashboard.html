@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}My dashboard{% endblock %}
+{% block content %}
+{% call ui.page_header('Hi ' ~ current_user.full_name.split(' ')[0] ~ ' 👋', 'Your applications, offers and next steps') %}
+  <a class="btn btn-primary" href="{{ url_for('careers.list_jobs') }}"><i class="bi bi-search me-1"></i>Browse jobs</a>
+{% endcall %}
+
+{% for offer in offers %}
+<div class="alert alert-success d-flex align-items-center gap-3">
+  <i class="bi bi-envelope-paper-heart fs-3"></i>
+  <div class="flex-grow-1"><strong>You have an offer!</strong> {{ offer.designation }} — please respond by {{ offer.expires_on|date }}.</div>
+  <a class="btn btn-success" href="{{ url_for('candidate.offer', offer_id=offer.id) }}">View offer</a>
+</div>
+{% endfor %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">{{ ui.kpi('bi-send', apps|length, 'Applications', 'indigo', url_for('candidate.applications')) }}</div>
+  <div class="col-6 col-lg-3">{{ ui.kpi('bi-hourglass-split', apps|selectattr('status', 'in', ['submitted','under_review','further_review','on_hold','shortlisted'])|list|length, 'In review', 'amber') }}</div>
+  <div class="col-6 col-lg-3">{{ ui.kpi('bi-calendar-event', apps|selectattr('status', 'equalto', 'interviewing')|list|length, 'Interviewing', 'teal') }}</div>
+  <div class="col-6 col-lg-3">{{ ui.kpi('bi-file-earmark-person', current_user.candidate.resumes|length, 'Resumes', 'slate', url_for('candidate.resumes')) }}</div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">Recent applications <a class="small" href="{{ url_for('candidate.applications') }}">All</a></div>
+      {% if apps %}
+      <ul class="list-group list-group-flush">
+        {% for a in apps[:6] %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div><a class="fw-semibold text-decoration-none" href="{{ url_for('candidate.application_detail', app_id=a.id) }}">{{ a.job.title }}</a>
+            <div class="small-muted">{{ a.job.department.name }} · applied {{ a.submitted_at|date }}</div></div>
+          {{ ui.status(a.status, a.status_label) }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}{{ ui.empty('bi-send', 'No applications yet', 'Find a role that fits and apply in a couple of clicks.', url_for('careers.list_jobs'), 'Browse jobs') }}{% endif %}
+    </div>
+  </div>
+  <div class="col-lg-4 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-body">
+      <div class="d-flex justify-content-between mb-2"><span class="fw-semibold">Profile completeness</span><span>{{ completeness }}%</span></div>
+      <div class="progress" role="progressbar" aria-valuenow="{{ completeness }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ completeness }}%"></div></div>
+      <p class="small-muted mt-2 mb-2">A complete profile helps recruiters understand your experience.</p>
+      <a class="btn btn-sm btn-light" href="{{ url_for('candidate.profile') }}">Edit profile</a>
+    </div></div>
+    <div class="card">
+      <div class="card-header">Roles related to your profile</div>
+      {% if suggestions %}
+      <ul class="list-group list-group-flush">
+        {% for s in suggestions %}
+        <li class="list-group-item"><a class="fw-semibold text-decoration-none" href="{{ url_for('careers.job_detail', job_id=s.job_id) }}">{{ s.title }}</a>
+          <div class="small-muted">{{ s.department }} · text similarity {{ '%.2f'|format(s.text_similarity) }}</div></li>
+        {% endfor %}
+      </ul>
+      <div class="card-body pt-2 small-muted">Based on how closely your resume text resembles each job description — not a prediction of success.</div>
+      {% else %}<div class="card-body small-muted">Upload a resume to see related open roles.</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+# Ingenium AI with Docker: the app + its own PostgreSQL, on this computer only.
+#
+#   1. In .env set POSTGRES_PASSWORD and a strong SECRET_KEY (see README, "Running with Docker").
+#   2. docker compose up --build -d
+#   3. docker compose exec web flask --app backend/run.py create-admin --email you@example.com --name "Ramakrishna"
+#   4. Open http://localhost:8000
+#
+# The container database is separate from the PostgreSQL installed on Windows,
+# so it starts empty; README "Copy your existing data into Docker" shows how to
+# bring your data across. Data survives restarts in the named volumes below.
+
+name: ingenium-ai
+
+services:
+  db:
+    image: postgres:17-alpine   # same major version as the Windows install, so backups restore cleanly
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ingenium_db
+      POSTGRES_USER: ingenium
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ingenium -d ingenium_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # No ports published: only the web container can reach the database.
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # Optional settings (AI, mail, limits) come from .env; the lines under
+    # `environment` override the ones that must differ inside a container.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: production
+      FLASK_DEBUG: "0"
+      SECRET_KEY: ${SECRET_KEY:?Set a strong SECRET_KEY in .env}
+      DATABASE_URL: postgresql://ingenium:${POSTGRES_PASSWORD}@db:5432/ingenium_db
+      UPLOAD_FOLDER: /data/uploads
+      # Plain http on localhost. Set to 1 when serving over HTTPS.
+      SESSION_COOKIE_SECURE: "0"
+      # Ollama running on the host computer (Windows/macOS Docker Desktop, or Linux via host-gateway).
+      OLLAMA_BASE_URL: ${DOCKER_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      # Bound to 127.0.0.1 so the app is not exposed to your network.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - appdata:/data
+
+volumes:
+  pgdata:
+  appdata:

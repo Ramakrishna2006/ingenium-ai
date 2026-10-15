@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block body %}
+<div class="tf-auth">
+  <div class="side">
+    {{ ui.brand(url_for('main.index')) }}
+    <div>
+      <h2>{% block side_title %}One flow from vacancy to first day.{% endblock %}</h2>
+      <p class="mt-3" style="max-width:460px">Structured hiring, explainable skill evidence and guided onboarding — with people making every decision.</p>
+      <ul class="list-unstyled mt-4 d-grid gap-2">
+        <li><i class="bi bi-shield-check text-info me-2"></i>Role-based access and full audit trail</li>
+        <li><i class="bi bi-cpu text-info me-2"></i>Private AI assistance via Ollama</li>
+        <li><i class="bi bi-diagram-3 text-info me-2"></i>Job clustering & related-role discovery</li>
+      </ul>
+    </div>
+    <span class="small">© Ingenium AI</span>
+  </div>
+  <main class="form-side" id="main">
+    <div class="form-wrap">
+      <div class="d-lg-none mb-4">{{ ui.brand(url_for('main.index')) }}</div>
+      {% include "_flash.html" %}
+      {% block form %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% endblock %}

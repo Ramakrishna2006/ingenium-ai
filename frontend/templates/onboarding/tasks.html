@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Onboarding tasks{% endblock %}
+{% block content %}
+{% call ui.page_header('Onboarding tasks', 'Every open onboarding task across new hires.', [('Dashboard', url_for('main.dashboard')), ('Onboarding tasks', None)]) %}
+  <form method="post" action="{{ url_for('onboarding.reminders') }}">{{ ui.csrf() }}
+    <button class="btn btn-light" data-confirm="Send reminders to the owners of all overdue tasks?" {% if not overdue_count %}disabled{% endif %}><i class="bi bi-bell me-1"></i>Send overdue reminders</button></form>
+{% endcall %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl">{{ ui.kpi('bi-hourglass', counts.get('pending', 0), 'Pending', 'slate', url_for('onboarding.tasks', status='pending')) }}</div>
+  <div class="col-6 col-xl">{{ ui.kpi('bi-arrow-repeat', counts.get('in_progress', 0), 'In progress', 'indigo', url_for('onboarding.tasks', status='in_progress')) }}</div>
+  <div class="col-6 col-xl">{{ ui.kpi('bi-slash-circle', counts.get('blocked', 0), 'Blocked', 'rose', url_for('onboarding.tasks', status='blocked')) }}</div>
+  <div class="col-6 col-xl">{{ ui.kpi('bi-alarm', overdue_count, 'Overdue', 'amber', url_for('onboarding.tasks', overdue=1)) }}</div>
+  <div class="col-6 col-xl">{{ ui.kpi('bi-check2-circle', counts.get('completed', 0), 'Completed', 'teal', url_for('onboarding.tasks', status='completed')) }}</div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <form class="d-flex flex-wrap gap-2 align-items-center" method="get">
+      <label class="small-muted" for="f-status">Status</label>
+      <select class="form-select form-select-sm w-auto" id="f-status" name="status" data-autosubmit>
+        <option value="">Open (not completed)</option>
+        {% for s in statuses %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s|humanize }}</option>{% endfor %}</select>
+      <label class="small-muted ms-2" for="f-who">Owner</label>
+      <select class="form-select form-select-sm w-auto" id="f-who" name="assignee" data-autosubmit>
+        <option value="">Anyone</option>
+        {% for a in assignee_types %}<option value="{{ a }}" {% if filters.assignee == a %}selected{% endif %}>{{ a|owner }}</option>{% endfor %}</select>
+      <div class="form-check ms-2"><input class="form-check-input" type="checkbox" id="f-over" name="overdue" value="1" {% if filters.overdue %}checked{% endif %} data-autosubmit><label class="form-check-label small" for="f-over">Overdue only</label></div>
+      <noscript><button class="btn btn-sm btn-light">Apply</button></noscript>
+      {% if filters.status or filters.assignee or filters.overdue %}<a class="btn btn-sm btn-link" href="{{ url_for('onboarding.tasks') }}">Clear</a>{% endif %}
+    </form>
+  </div>
+  {% if page.items %}
+  <div class="table-responsive"><table class="table table-hover align-middle">
+    <thead><tr><th>Task</th><th>Employee</th><th>Owner</th><th>Due</th><th>Priority</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for t in page.items %}
+      {% set overdue = t.status != 'completed' and t.due_date and t.due_date < today %}
+      <tr>
+        <td><div class="fw-semibold">{{ t.title }}</div><div class="small-muted">{{ t.category_label }}{% if t.blocked_reason %} · <span class="text-danger">{{ t.blocked_reason }}</span>{% endif %}</div></td>
+        <td><a class="row-link" href="{{ url_for('employees.profile', employee_id=t.employee_id) }}">{{ t.employee.user.full_name }}</a><div class="small-muted">{{ t.employee.designation }}</div></td>
+        <td class="small">{{ t.assignee.full_name if t.assignee else t.assignee_type|owner }}</td>
+        <td class="small {% if overdue %}text-danger fw-semibold{% endif %}">{{ t.due_date|date }}</td>
+        <td>{{ ui.status(t.priority) }}</td>
+        <td>{{ ui.status(t.status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {{ ui.pagination(page, 'onboarding.tasks') }}
+  {% else %}
+    {{ ui.empty('bi-list-check', 'No tasks match', 'Onboarding tasks are generated from templates when a candidate accepts an offer.') }}
+  {% endif %}
+</div>
+{% endblock %}

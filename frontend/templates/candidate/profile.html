@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+{% call ui.page_header('My profile', 'Only information needed for recruitment. Recruiters on roles you apply to can see it.') %}{% endcall %}
+<form method="post" class="card"><div class="card-body">
+  {{ ui.csrf() }}
+  <div class="row g-3">
+    <div class="col-md-6"><label class="form-label" for="full_name">Full name</label>
+      <input class="form-control" id="full_name" name="full_name" value="{{ current_user.full_name }}" required minlength="2" maxlength="150"></div>
+    <div class="col-md-6"><label class="form-label" for="email">Email</label>
+      <input class="form-control" id="email" value="{{ current_user.email }}" disabled aria-describedby="email-help">
+      <div class="form-text" id="email-help">Contact HR to change your sign-in email.</div></div>
+    <div class="col-md-6"><label class="form-label" for="phone">Phone</label>
+      <input class="form-control" id="phone" name="phone" value="{{ cand.phone or '' }}" maxlength="40" inputmode="tel" pattern="[0-9+()\-\s]{6,40}"></div>
+    <div class="col-md-6"><label class="form-label" for="location">Location</label>
+      <input class="form-control" id="location" name="location" value="{{ cand.location or '' }}" maxlength="120"></div>
+    <div class="col-md-8"><label class="form-label" for="headline">Professional headline</label>
+      <input class="form-control" id="headline" name="headline" value="{{ cand.headline or '' }}" maxlength="200" placeholder="e.g. Backend developer — Python & PostgreSQL"></div>
+    <div class="col-md-4"><label class="form-label" for="years_experience">Years of experience</label>
+      <input class="form-control" type="number" step="0.5" min="0" max="60" id="years_experience" name="years_experience" value="{{ cand.years_experience if cand.years_experience is not none else '' }}"></div>
+    <div class="col-12"><label class="form-label" for="summary">Summary</label>
+      <textarea class="form-control" id="summary" name="summary" rows="4" maxlength="4000">{{ cand.summary or '' }}</textarea></div>
+    <div class="col-12"><label class="form-label" for="skills">Skills</label>
+      <input class="form-control" id="skills" name="skills" value="{{ (cand.skills or [])|join(', ') }}" aria-describedby="skills-help">
+      <div class="form-text" id="skills-help">Comma-separated. Common names are normalised (e.g. "postgres" → PostgreSQL).</div></div>
+    <div class="col-md-6"><label class="form-label" for="education">Education <span class="small-muted">(one per line)</span></label>
+      <textarea class="form-control" id="education" name="education" rows="3">{{ (cand.education or [])|join('\n') }}</textarea></div>
+    <div class="col-md-6"><label class="form-label" for="certifications">Certifications <span class="small-muted">(one per line)</span></label>
+      <textarea class="form-control" id="certifications" name="certifications" rows="3">{{ (cand.certifications or [])|join('\n') }}</textarea></div>
+    <div class="col-md-6"><label class="form-label" for="linkedin_url">LinkedIn URL</label>
+      <input class="form-control" type="url" id="linkedin_url" name="linkedin_url" value="{{ cand.linkedin_url or '' }}" placeholder="https://"></div>
+    <div class="col-md-6"><label class="form-label" for="portfolio_url">Portfolio / GitHub URL</label>
+      <input class="form-control" type="url" id="portfolio_url" name="portfolio_url" value="{{ cand.portfolio_url or '' }}" placeholder="https://"></div>
+  </div>
+</div>
+<div class="card-footer bg-white d-flex justify-content-end gap-2 py-3">{{ ui.submit('Save profile', 'btn-primary', 'bi-check-lg') }}</div>
+</form>
+{% endblock %}

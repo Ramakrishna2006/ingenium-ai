@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Employees{% endblock %}
+{% block content %}
+{{ ui.page_header('Employees', 'People hired through Ingenium AI and their onboarding progress.', [('Dashboard', url_for('main.dashboard')), ('Employees', None)]) }}
+
+<div class="card">
+  <div class="card-header">
+    <form class="row g-2 align-items-end" method="get" role="search">
+      <div class="col-md-5"><label class="form-label small" for="eq">Search</label>
+        <input class="form-control form-control-sm" id="eq" type="search" name="q" value="{{ filters.q }}" placeholder="Name, employee ID or designation"></div>
+      <div class="col-md-3"><label class="form-label small" for="ed">Department</label>
+        <select class="form-select form-select-sm" id="ed" name="department"><option value="">All departments</option>
+          {% for d in departments %}<option value="{{ d.id }}" {% if filters.department == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+      <div class="col-md-2"><label class="form-label small" for="es">Status</label>
+        <select class="form-select form-select-sm" id="es" name="status"><option value="">Any</option>
+          {% for k, v in statuses.items() %}<option value="{{ k }}" {% if filters.status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+      <div class="col-md-2 d-flex gap-2"><button class="btn btn-sm btn-primary flex-grow-1">Filter</button>
+        {% if filters.q or filters.department or filters.status %}<a class="btn btn-sm btn-light" href="{{ url_for('employees.directory') }}" aria-label="Clear filters"><i class="bi bi-x-lg"></i></a>{% endif %}</div>
+    </form>
+  </div>
+  {% if page.items %}
+  <div class="table-responsive"><table class="table table-hover align-middle">
+    <thead><tr><th>Employee</th><th>ID</th><th>Designation</th><th>Department</th><th>Manager</th><th>Joining</th><th>Status</th><th style="min-width:140px">Onboarding</th></tr></thead>
+    <tbody>
+      {% for e in page.items %}
+      <tr>
+        <td><div class="d-flex align-items-center gap-2"><span class="tf-avatar" style="width:32px;height:32px;font-size:.75rem">{{ e.user.initials }}</span>
+          <a class="row-link" href="{{ url_for('employees.profile', employee_id=e.id) }}">{{ e.user.full_name }}</a></div></td>
+        <td><code>{{ e.employee_code }}</code></td>
+        <td>{{ e.designation }}</td>
+        <td>{{ e.department.name }}</td>
+        <td>{{ e.manager.full_name if e.manager else '—' }}</td>
+        <td>{{ e.joining_date|date }}</td>
+        <td>{{ ui.status(e.employment_status, e.status_label) }}</td>
+        <td>{% set p = e.onboarding_progress %}<div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" role="progressbar" aria-label="Onboarding progress" aria-valuenow="{{ p }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width: {{ p }}%"></div></div><span class="small">{{ p }}%</span></div></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {{ ui.pagination(page, 'employees.directory') }}
+  {% else %}
+    {{ ui.empty('bi-person-badge', 'No employees found', 'Employee records are created automatically when a candidate accepts an approved offer.' if not (filters.q or filters.department or filters.status) else 'Try different filters.') }}
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Job clusters{% endblock %}
+{% block content %}
+{% call ui.page_header('Job clusters', 'Published vacancies grouped by TF-IDF text similarity and K-Means. Groups are descriptive, not rankings.', [('Vacancies', url_for('jobs.manage_list')), ('Clusters', None)]) %}
+  {% if current_user.can('clustering.run') %}
+  <form method="post" action="{{ url_for('jobs.recompute_clusters') }}">{{ ui.csrf() }}{{ ui.submit('Recompute clusters', 'btn-primary', 'bi-arrow-repeat') }}</form>
+  {% endif %}
+{% endcall %}
+
+{% if run %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3">{{ ui.kpi('bi-collection', run.n_clusters, 'Groups', 'indigo') }}</div>
+  <div class="col-6 col-lg-3">{{ ui.kpi('bi-briefcase', run.n_jobs, 'Jobs clustered', 'teal') }}</div>
+  <div class="col-6 col-lg-3">{{ ui.kpi('bi-bullseye', '%.3f'|format(run.silhouette) if run.silhouette is not none else None, 'Silhouette (cosine)', 'amber') }}</div>
+  <div class="col-6 col-lg-3">{{ ui.kpi('bi-clock-history', run.created_at|dt('%d %b %H:%M'), 'Last run', 'slate') }}</div>
+</div>
+<div class="alert {% if stale %}alert-warning{% elif run.status == 'completed' %}alert-info{% else %}alert-warning{% endif %} small d-flex gap-2">
+  <i class="bi bi-info-circle"></i>
+  <div>{{ run.message }}{% if stale %} <strong>The set of published vacancies has changed since this run ({{ published_count }} published now) — recompute to refresh.</strong>{% endif %}
+    {% if run.k_scores %}<div class="mt-1">Cluster counts evaluated: {% for s in run.k_scores %}k={{ s.k }} ({{ '%.3f'|format(s.silhouette) if s.silhouette is not none else 'n/a' }}){% if not loop.last %}, {% endif %}{% endfor %}</div>{% endif %}</div>
+</div>
+
+<form class="card mb-3" method="get" role="search"><div class="card-body row g-2 align-items-end">
+  <div class="col-md-5"><label class="form-label small" for="q">Search within clusters</label><input id="q" class="form-control form-control-sm" name="q" value="{{ q }}" placeholder="Job title, skill or keyword"></div>
+  <div class="col-md-4"><label class="form-label small" for="cluster">Group</label>
+    <select id="cluster" class="form-select form-select-sm" name="cluster"><option value="">All groups</option>
+      {% for c in run.clusters %}<option value="{{ c.index }}" {% if selected == c.index %}selected{% endif %}>{{ c.label }} ({{ c.size }})</option>{% endfor %}</select></div>
+  <div class="col-md-3 d-flex gap-2"><button class="btn btn-sm btn-primary" type="submit">Apply</button><a class="btn btn-sm btn-light" href="{{ url_for('jobs.clusters') }}">Reset</a></div>
+</div></form>
+
+<div class="row g-3">
+  {% for g in groups %}
+  <div class="col-lg-6 col-xxl-4">
+    <div class="card cluster-card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div><div class="small-muted">Group {{ g.index + 1 }}</div><h2 class="h6 fw-bold mb-2">{{ g.label }}</h2></div>
+          <span class="badge text-bg-indigo">{{ g.jobs|length }} job{{ '' if g.jobs|length == 1 else 's' }}</span>
+        </div>
+        <div class="mb-3">{% for k in g.keywords %}<span class="chip kw">{{ k }}</span>{% endfor %}</div>
+        <ul class="list-unstyled mb-0">
+          {% for j in g.jobs %}
+          <li class="d-flex justify-content-between border-top py-2">
+            <span><a href="{{ url_for('jobs.job_detail', job_id=j.id) }}" class="fw-semibold small">{{ j.title }}</a>
+              <span class="small-muted d-block">{{ j.department.name }}</span></span>
+            <span class="small-muted" title="Cosine similarity to group centre">{{ '%.2f'|format(sims.get(j.id)) if sims.get(j.id) is not none else '' }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12"><div class="card">{{ ui.empty('bi-search', 'No jobs match', 'Try another search term.') }}</div></div>
+  {% endfor %}
+</div>
+<p class="small-muted mt-3">Method: title and required skills (weighted ×2), description, qualifications, department and employment type → TF-IDF (1–2 grams, English + job-ad stop words)
+  → K-Means (k = 2…{{ run.params.max_k }}, random_state {{ run.params.random_state }}), k chosen by best cosine silhouette. Duplicate texts share a group. Candidate data is never used.</p>
+{% else %}
+<div class="card">{{ ui.empty('bi-diagram-3', 'No clustering run yet', 'Publish a few vacancies, then run clustering to discover job families (' ~ published_count ~ ' published now).') }}</div>
+{% endif %}
+{% endblock %}

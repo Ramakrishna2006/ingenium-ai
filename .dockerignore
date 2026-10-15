@@ -1,0 +1,41 @@
+# Never send secrets, local data or private files into the image.
+# (Patterns are relative to the project root; **/ matches in any folder.)
+**/.env
+**/.env.*
+!.env.example
+instance/
+**/instance/
+**/uploads/
+**/*.sqlite3
+**/*.db
+**/*.dump
+
+# Tooling and caches
+.git
+.gitignore
+.gitattributes
+.venv/
+venv/
+env/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+.coverage
+htmlcov/
+.idea/
+.vscode/
+**/*.log
+**/*.zip
+**/.DS_Store
+**/Thumbs.db
+
+# Not needed at runtime
+backend/tests/
+pytest.ini
+docs/
+README.md
+Dockerfile
+docker-compose*.yml
+render.yaml
+
+RUN.md

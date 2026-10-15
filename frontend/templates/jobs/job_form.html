@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ 'Edit vacancy' if job else 'New vacancy' }}{% endblock %}
+{% block content %}
+{% set src = job or prefill %}
+{% call ui.page_header('Edit vacancy' if job else 'New vacancy', 'Describe the role clearly — required skills drive explainable matching and clustering.',
+   [('Vacancies', url_for('jobs.manage_list')), (job.title if job else 'New', None)]) %}{% endcall %}
+<form method="post" class="row g-3">
+  {{ ui.csrf() }}
+  <div class="col-lg-8">
+    <div class="card"><div class="card-body row g-3">
+      <div class="col-md-8"><label class="form-label" for="title">Job title</label>
+        <input class="form-control" id="title" name="title" required minlength="2" maxlength="150" value="{{ src.title if src else '' }}"></div>
+      <div class="col-md-4"><label class="form-label" for="department_id">Department</label>
+        <select class="form-select" id="department_id" name="department_id" required>
+          {% for d in departments %}<option value="{{ d.id }}" {% if src and src.department_id == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+      <div class="col-12"><label class="form-label" for="required_skills">Required skills</label>
+        <input class="form-control" id="required_skills" name="required_skills" required value="{{ (job.required_skills if job else [])|join(', ') }}" placeholder="Python, Flask, PostgreSQL" aria-describedby="rs-help">
+        <div class="form-text" id="rs-help">Comma-separated, explicit and job-relevant. Used for evidence matching — keep it to genuine requirements.</div></div>
+      <div class="col-12"><label class="form-label" for="preferred_skills">Nice-to-have skills</label>
+        <input class="form-control" id="preferred_skills" name="preferred_skills" value="{{ (job.preferred_skills if job else [])|join(', ') }}"></div>
+      <div class="col-12">
+        <div class="ai-box mb-3">
+          <div class="ai-label mb-1"><i class="bi bi-stars"></i> AI drafting assistant (optional)</div>
+          <div class="d-flex flex-wrap gap-2 align-items-start">
+            <input class="form-control form-control-sm flex-grow-1" name="ai_notes" maxlength="2000" style="max-width:520px"
+                   placeholder="Optional notes for the draft, e.g. team size, key projects" aria-label="Notes for AI draft">
+            <button type="button" class="btn btn-sm btn-primary" id="ai-draft-btn" data-url="{{ url_for('api.draft_description') }}"><i class="bi bi-magic me-1"></i>Draft description</button>
+          </div>
+          <div id="ai-draft-status" class="small text-muted mt-1" role="status" aria-live="polite">Runs on your Ollama server. Review all generated text before publishing.</div>
+        </div>
+        <label class="form-label" for="description">Description</label>
+        <textarea class="form-control" id="description" name="description" rows="10" required minlength="20" maxlength="20000">{{ job.description if job else (prefill.justification if prefill else '') }}</textarea></div>
+      <div class="col-12"><label class="form-label" for="qualifications">Qualifications</label>
+        <textarea class="form-control" id="qualifications" name="qualifications" rows="3" maxlength="4000">{{ job.qualifications if job and job.qualifications else '' }}</textarea></div>
+    </div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-body row g-3">
+      <div class="col-6"><label class="form-label" for="employment_type">Type</label>
+        <select class="form-select" id="employment_type" name="employment_type">{% for k, v in types.items() %}<option value="{{ k }}" {% if src and src.employment_type == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+      <div class="col-6"><label class="form-label" for="headcount">Openings</label>
+        <input class="form-control" type="number" min="1" max="500" id="headcount" name="headcount" value="{{ src.headcount if src else 1 }}"></div>
+      <div class="col-6"><label class="form-label" for="experience_min_years">Min. years</label>
+        <input class="form-control" type="number" min="0" max="50" id="experience_min_years" name="experience_min_years" value="{{ job.experience_min_years if job and job.experience_min_years is not none else '' }}"></div>
+      <div class="col-6"><label class="form-label" for="experience_max_years">Max. years</label>
+        <input class="form-control" type="number" min="0" max="60" id="experience_max_years" name="experience_max_years" value="{{ job.experience_max_years if job and job.experience_max_years is not none else '' }}"></div>
+      <div class="col-12"><label class="form-label" for="location">Location</label>
+        <input class="form-control" id="location" name="location" maxlength="120" value="{{ job.location if job and job.location else '' }}"></div>
+      <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="is_remote" name="is_remote" {% if job and job.is_remote %}checked{% endif %}>
+        <label class="form-check-label" for="is_remote">Remote-friendly</label></div></div>
+      <div class="col-12"><label class="form-label" for="application_deadline">Application deadline</label>
+        <input class="form-control" type="date" id="application_deadline" name="application_deadline" value="{{ job.application_deadline if job and job.application_deadline else '' }}"></div>
+      <div class="col-12"><label class="form-label" for="recruiter_id">Recruiter</label>
+        <select class="form-select" id="recruiter_id" name="recruiter_id"><option value="">—</option>
+          {% for u in recruiters %}<option value="{{ u.id }}" {% if (job and job.recruiter_id == u.id) or (not job and current_user.id == u.id) %}selected{% endif %}>{{ u.full_name }}</option>{% endfor %}</select></div>
+      <div class="col-12"><label class="form-label" for="hiring_manager_id">Hiring manager</label>
+        <select class="form-select" id="hiring_manager_id" name="hiring_manager_id"><option value="">—</option>
+          {% for u in managers %}<option value="{{ u.id }}" {% if src and src.hiring_manager_id == u.id %}selected{% endif %}>{{ u.full_name }}</option>{% endfor %}</select></div>
+      <div class="col-12"><label class="form-label" for="hiring_request_id">Hiring request</label>
+        <select class="form-select" id="hiring_request_id" name="hiring_request_id"><option value="">None</option>
+          {% for h in hiring_requests %}<option value="{{ h.id }}" {% if (job and job.hiring_request_id == h.id) or (prefill and prefill.id == h.id) %}selected{% endif %}>#{{ h.id }} {{ h.title }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="card-footer bg-white d-grid gap-2 py-3">
+      {{ ui.submit('Save changes' if job else 'Save as draft', 'btn-primary', 'bi-check-lg') }}
+      {% if not job %}{{ ui.submit('Save & publish', 'btn-teal', 'bi-megaphone', name='publish', value='1') }}{% endif %}
+      <a class="btn btn-light" href="{{ url_for('jobs.job_detail', job_id=job.id) if job else url_for('jobs.manage_list') }}">Cancel</a>
+    </div></div>
+  </div>
+</form>
+{% endblock %}

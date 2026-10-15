@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ job.title }}{% endblock %}
+{% macro detail() %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-body p-4">
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="badge text-bg-indigo">{{ job.department.name }}</span>
+        <span class="badge text-bg-secondary">{{ job.employment_type_label }}</span>
+        <span class="badge text-bg-secondary"><i class="bi bi-geo-alt"></i> {{ job.location or 'Flexible' }}{% if job.is_remote %} · Remote{% endif %}</span>
+        {% if job.experience_min_years is not none %}<span class="badge text-bg-secondary">{{ job.experience_min_years }}+ yrs experience</span>{% endif %}
+      </div>
+      <h2 class="h6 fw-bold">About the role</h2>
+      <div class="prose-pre mb-4">{{ job.description }}</div>
+      {% if job.qualifications %}<h2 class="h6 fw-bold">Qualifications</h2><div class="prose-pre mb-4">{{ job.qualifications }}</div>{% endif %}
+      <h2 class="h6 fw-bold">Required skills</h2>
+      <div class="mb-3">{{ ui.skills(job.required_skills, 'kw') }}</div>
+      {% if job.preferred_skills %}<h2 class="h6 fw-bold">Nice to have</h2><div>{{ ui.skills(job.preferred_skills) }}</div>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card sticky-lg-top" style="top: 84px"><div class="card-body p-4">
+      {% if application %}
+        <h2 class="h6 fw-bold">You applied {{ application.submitted_at|date }}</h2>
+        <p class="mb-3">Current status: {{ ui.status(application.status, application.status_label) }}</p>
+        <a class="btn btn-primary w-100" href="{{ url_for('candidate.application_detail', app_id=application.id) }}">Track application</a>
+      {% elif not job.is_open_for_applications() %}
+        <p class="mb-0">This vacancy is no longer accepting applications.</p>
+      {% elif current_user.is_authenticated and current_user.can('self.candidate') %}
+        {% set cand = current_user.candidate %}
+        <h2 class="h6 fw-bold">Apply for this role</h2>
+        {% if cand and cand.resumes %}
+        <form method="post" action="{{ url_for('careers.apply', job_id=job.id) }}">
+          {{ ui.csrf() }}
+          <label class="form-label" for="resume_id">Resume</label>
+          <select class="form-select mb-3" id="resume_id" name="resume_id" required>
+            {% for r in cand.resumes %}<option value="{{ r.id }}" {% if r.is_primary %}selected{% endif %}>{{ r.original_filename }}{% if r.is_primary %} (primary){% endif %}</option>{% endfor %}
+          </select>
+          <label class="form-label" for="cover_letter">Cover note <span class="small-muted">(optional)</span></label>
+          <textarea class="form-control mb-3" id="cover_letter" name="cover_letter" rows="5" maxlength="5000"
+            placeholder="Why are you interested in this role?"></textarea>
+          {{ ui.submit('Submit application', 'btn-primary w-100', 'bi-send') }}
+        </form>
+        {% else %}
+          <p class="small-muted">Upload a resume before applying.</p>
+          <a class="btn btn-primary w-100" href="{{ url_for('candidate.resumes') }}">Upload resume</a>
+        {% endif %}
+      {% elif current_user.is_authenticated %}
+        <p class="small-muted mb-0">Staff accounts cannot apply. Sign in with a candidate account to apply.</p>
+      {% else %}
+        <h2 class="h6 fw-bold">Interested?</h2>
+        <p class="small-muted">Create a free candidate account to apply and track your progress.</p>
+        <a class="btn btn-primary w-100 mb-2" href="{{ url_for('auth.register') }}">Create account</a>
+        <a class="btn btn-light w-100" href="{{ url_for('auth.login', next=request.path) }}">Sign in</a>
+      {% endif %}
+      <hr>
+      <dl class="row small mb-0">
+        <dt class="col-6 fw-normal small-muted">Posted</dt><dd class="col-6">{{ job.published_at|date }}</dd>
+        <dt class="col-6 fw-normal small-muted">Deadline</dt><dd class="col-6">{{ job.application_deadline|date if job.application_deadline else 'Open until filled' }}</dd>
+        <dt class="col-6 fw-normal small-muted">Openings</dt><dd class="col-6">{{ job.headcount }}</dd>
+      </dl>
+    </div></div>
+  </div>
+</div>
+{% endmacro %}
+{% block content %}
+  {% call ui.page_header(job.title, job.department.name, [('Open roles', url_for('careers.list_jobs')), (job.title, None)]) %}{% endcall %}
+  {{ detail() }}
+{% endblock %}
+{% block public %}
+<div class="container py-4">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url_for('careers.list_jobs') }}">Open roles</a></li><li class="breadcrumb-item active" aria-current="page">{{ job.title }}</li></ol></nav>
+  <h1 class="h3 fw-bold mb-4">{{ job.title }}</h1>
+  {{ detail() }}
+</div>
+{% endblock %}

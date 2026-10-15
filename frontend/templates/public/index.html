@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Careers & hiring platform{% endblock %}
+{% block public %}
+<section class="tf-hero">
+  <div class="container">
+    <div class="row align-items-center g-4 g-lg-5">
+      <div class="col-lg-7">
+        <span class="badge rounded-pill text-bg-teal mb-3">{{ org_name }} · {{ open_count }} open role{{ '' if open_count == 1 else 's' }}</span>
+        <h1>Hire with evidence.<br>Onboard with confidence.</h1>
+        <p class="lead mt-3">Ingenium AI connects workforce planning, applications, structured interviews, offers and
+          onboarding in one place — with explainable skill matching and a local AI assistant that never makes decisions for you.</p>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <a class="btn btn-teal btn-lg" href="{{ url_for('careers.apply_home') }}"><i class="bi bi-send me-1"></i>Apply for a job</a>
+          <a class="btn btn-outline-light btn-lg" href="{{ url_for('auth.login', **{'as': 'employee'}) }}"><i class="bi bi-person-badge me-1"></i>Employee sign in</a>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card bg-white bg-opacity-10 border-0 text-white" style="backdrop-filter: blur(6px)">
+          <div class="card-body p-4">
+            <div class="small text-uppercase fw-semibold mb-3" style="letter-spacing:.08em;color:#a5b4fc">How it works</div>
+            <ol class="list-unstyled mb-0 d-grid gap-3">
+              <li class="d-flex gap-3"><i class="bi bi-1-circle-fill fs-4 text-info"></i><span>Create a candidate account and upload your resume (PDF or DOCX).</span></li>
+              <li class="d-flex gap-3"><i class="bi bi-2-circle-fill fs-4 text-info"></i><span>Apply to roles and follow every step on your application timeline.</span></li>
+              <li class="d-flex gap-3"><i class="bi bi-3-circle-fill fs-4 text-info"></i><span>Receive your offer online and start onboarding from day zero.</span></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container" style="margin-top:-3rem" aria-labelledby="choose-path">
+  <h2 id="choose-path" class="visually-hidden">Choose how you want to continue</h2>
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <a class="card tf-path-card h-100 text-reset text-decoration-none" href="{{ url_for('careers.apply_home') }}">
+        <div class="card-body p-4 d-flex gap-3">
+          <div class="tf-path-icon bg-teal-soft"><i class="bi bi-send" aria-hidden="true"></i></div>
+          <div>
+            <div class="small fw-semibold text-uppercase" style="letter-spacing:.08em;color:var(--tf-teal)">For job seekers</div>
+            <h3 class="h4 fw-bold mb-1">Apply for a job</h3>
+            <p class="small-muted mb-3">Browse {{ open_count }} open role{{ '' if open_count == 1 else 's' }}, create a free candidate account, upload your resume and track every application.</p>
+            <span class="btn btn-teal btn-sm">Start applying <i class="bi bi-arrow-right"></i></span>
+          </div>
+        </div></a>
+    </div>
+    <div class="col-md-6">
+      <a class="card tf-path-card h-100 text-reset text-decoration-none" href="{{ url_for('auth.login', **{'as': 'employee'}) }}">
+        <div class="card-body p-4 d-flex gap-3">
+          <div class="tf-path-icon bg-indigo-soft"><i class="bi bi-person-badge" aria-hidden="true"></i></div>
+          <div>
+            <div class="small fw-semibold text-uppercase" style="letter-spacing:.08em;color:var(--tf-indigo)">For employees & staff</div>
+            <h3 class="h4 fw-bold mb-1">Employee sign in</h3>
+            <p class="small-muted mb-3">HR, recruiters, managers, interviewers and new joiners — sign in to manage hiring or complete your onboarding.</p>
+            <span class="btn btn-primary btn-sm">Sign in <i class="bi bi-arrow-right"></i></span>
+          </div>
+        </div></a>
+    </div>
+  </div>
+</section>
+
+<section class="container">
+  <div class="row g-3">
+    {% for icon, tone, title, text in [
+      ('bi-diagram-3', 'indigo', 'Multi-job clustering', 'TF-IDF and K-Means group vacancies into interpretable families and surface related roles.'),
+      ('bi-check2-square', 'teal', 'Explainable matching', 'Every skill match points to evidence in the resume. Missing skills are flagged for verification, not penalised silently.'),
+      ('bi-cpu', 'amber', 'Private, local AI', 'Summaries and interview questions come from Ollama running on your own infrastructure.'),
+      ('bi-rocket-takeoff', 'rose', 'Onboarding built in', 'Accepted offers become employee records with documents, tasks, training and probation check-ins.')] %}
+    <div class="col-md-6 col-lg-3">
+      <div class="card tf-feature"><div class="icon bg-{{ tone }}-soft"><i class="bi {{ icon }}"></i></div>
+        <h2 class="h6 fw-bold">{{ title }}</h2><p class="small-muted mb-0">{{ text }}</p></div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="container mt-5">
+  <div class="d-flex justify-content-between align-items-end mb-3">
+    <div><h2 class="h4 fw-bold mb-1">Latest openings</h2><p class="small-muted mb-0">Updated as recruiters publish new roles.</p></div>
+    <a href="{{ url_for('careers.list_jobs') }}" class="btn btn-light btn-sm">View all <i class="bi bi-arrow-right"></i></a>
+  </div>
+  <div class="row g-3">
+    {% for job in jobs %}
+      <div class="col-md-6 col-lg-4">{% include "public/_job_card.html" %}</div>
+    {% else %}
+      <div class="col-12"><div class="card">{{ ui.empty('bi-briefcase', 'No open roles right now', 'Check back soon — new vacancies appear here as soon as they are published.') }}</div></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

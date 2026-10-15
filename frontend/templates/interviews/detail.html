@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ iv.kind_label }} interview{% endblock %}
+{% block content %}
+{% set cand = app.candidate %}
+{% set crumbs = [('Interviews', url_for('interviews.calendar'))] %}
+{% if not limited %}{% set crumbs = crumbs + [(cand.user.full_name, url_for('applications.detail', app_id=app.id))] %}{% endif %}
+{% call ui.page_header(iv.kind_label ~ ' interview', cand.user.full_name ~ ' · ' ~ app.job.title, crumbs + [(iv.kind_label ~ ' interview', None)]) %}
+  {{ ui.status(iv.status) }}
+  {% if not limited %}<a class="btn btn-light" href="{{ url_for('applications.detail', app_id=app.id) }}"><i class="bi bi-file-person me-1"></i>Application</a>{% endif %}
+{% endcall %}
+
+<div class="row g-3">
+  <div class="col-xl-8 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-body">
+      <div class="row g-3">
+        <div class="col-sm-6"><div class="small-muted">When (participant time)</div>
+          <div class="fw-semibold">{{ local_start.strftime('%A, %d %B %Y · %H:%M') }} <span class="small-muted">{{ iv.timezone }}</span></div>
+          <div class="small-muted">Your org time: {{ iv.scheduled_at|dt('%d %b, %H:%M %Z') }} · {{ iv.duration_minutes }} min{% if iv.reschedule_count %} · rescheduled {{ iv.reschedule_count }}×{% endif %}</div></div>
+        <div class="col-sm-6"><div class="small-muted">Where</div>
+          {% if iv.meeting_link %}<div><a href="{{ iv.meeting_link }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-camera-video me-1"></i>Join meeting</a></div>{% endif %}
+          {% if iv.location %}<div><i class="bi bi-geo-alt me-1"></i>{{ iv.location }}</div>{% endif %}</div>
+        <div class="col-sm-6"><div class="small-muted">Panel</div>
+          {% for a in iv.assignments %}<span class="chip kw">{{ a.interviewer.full_name }}{% if iv.feedback|selectattr('interviewer_id', 'equalto', a.interviewer_id)|list %} <i class="bi bi-check2" title="Feedback submitted"></i>{% endif %}</span>{% endfor %}</div>
+        <div class="col-sm-6"><div class="small-muted">Scorecards</div><div class="fw-semibold">{{ iv.feedback|length }} of {{ iv.assignments|length }} submitted</div></div>
+      </div>
+      {% if iv.notes %}<hr><div class="small-muted">Panel notes</div><p class="prose-pre small mb-0">{{ iv.notes }}</p>{% endif %}
+      {% if iv.cancelled_reason %}<div class="alert alert-secondary small mt-3 mb-0">Cancelled: {{ iv.cancelled_reason }}</div>{% endif %}
+    </div></div>
+
+    {# --------- Question bank --------- #}
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-patch-question me-1"></i>Suggested questions</span>
+        {% if iv.status == 'scheduled' %}
+        <form method="post" action="{{ url_for('interviews.questions', interview_id=iv.id) }}">{{ ui.csrf() }}
+          <button class="btn btn-sm btn-light" data-loading data-loading-text="Generating…"><i class="bi bi-stars me-1"></i>{{ 'Regenerate' if iv.question_bank else 'Generate' }} with AI</button></form>{% endif %}</div>
+      <div class="card-body">
+        {% if iv.question_bank %}
+        <ol class="mb-0">{% for q in iv.question_bank %}
+          <li class="mb-2"><div class="fw-semibold">{{ q.question }}</div>
+            {% if q.competency %}<span class="chip kw">{{ q.competency }}</span>{% endif %}
+            {% if q.what_good_looks_like %}<div class="evidence">Good answer: {{ q.what_good_looks_like }}</div>{% endif %}</li>
+        {% endfor %}</ol>
+        <div class="small-muted mt-2">AI-suggested, job-related prompts. Use, edit or ignore them.</div>
+        {% else %}<p class="small-muted mb-0">No questions yet. Generate suggestions from the job’s requirements (requires the AI service), or bring your own.</p>{% endif %}
+      </div>
+    </div>
+
+    {# --------- Scorecards --------- #}
+    <div class="card" id="scorecards">
+      <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-clipboard-check me-1"></i>Scorecards</span>
+        {% if see_all and iv.feedback|length >= 1 %}
+        <form method="post" action="{{ url_for('interviews.summary', interview_id=iv.id) }}">{{ ui.csrf() }}
+          <button class="btn btn-sm btn-light" data-loading data-loading-text="Summarising…"><i class="bi bi-stars me-1"></i>Summarise with AI</button></form>{% endif %}</div>
+      <div class="card-body d-grid gap-3">
+        {% for f in feedback %}
+        <div class="border rounded-3 p-3">
+          <div class="d-flex justify-content-between flex-wrap gap-2">
+            <div class="fw-semibold">{{ f.interviewer.full_name if f.interviewer else 'Former user' }}{% if f.interviewer_id == current_user.id %} <span class="small-muted">(you)</span>{% endif %}</div>
+            <div><span class="badge text-bg-{{ 'success' if f.recommendation in ('hire','strong_hire') else 'danger' }}">{{ f.recommendation_label }}</span>
+              <span class="ms-2 fw-bold">{{ f.overall_rating }}/5</span></div>
+          </div>
+          {% if f.ratings %}<div class="d-flex flex-wrap gap-3 small mt-2">{% for k, v in f.ratings.items() %}<span>{{ k|humanize }}: <strong>{{ v }}</strong>/5</span>{% endfor %}</div>{% endif %}
+          {% if f.strengths %}<div class="mt-2 small"><span class="fw-semibold text-success">Strengths.</span> <span class="prose-pre">{{ f.strengths }}</span></div>{% endif %}
+          {% if f.concerns %}<div class="mt-1 small"><span class="fw-semibold text-danger">Concerns.</span> <span class="prose-pre">{{ f.concerns }}</span></div>{% endif %}
+          {% if f.notes %}<div class="mt-1 small"><span class="fw-semibold">Notes.</span> <span class="prose-pre">{{ f.notes }}</span></div>{% endif %}
+          <div class="small-muted mt-2">Submitted {{ f.created_at|dt }}</div>
+        </div>
+        {% else %}
+          {% if not see_all and iv.feedback %}<p class="small-muted mb-0"><i class="bi bi-eye-slash me-1"></i>Other panel members’ feedback is hidden until you submit your own, so each scorecard stays independent.</p>
+          {% else %}<p class="small-muted mb-0">No scorecards submitted yet.</p>{% endif %}
+        {% endfor %}
+
+        {% if is_interviewer and not mine and iv.status != 'cancelled' %}
+          {% if started %}
+          <form method="post" action="{{ url_for('interviews.feedback', interview_id=iv.id) }}" class="border rounded-3 p-3 bg-light-subtle">{{ ui.csrf() }}
+            <h2 class="h6 fw-bold">Your scorecard</h2>
+            <p class="small-muted">Rate job-related evidence only, 1 (weak) – 5 (excellent).</p>
+            <div class="row g-2">
+              {% for c in criteria %}
+              <div class="col-sm-6 col-lg-3"><label class="form-label small" for="r-{{ c }}">{{ c|humanize }}</label>
+                <select class="form-select form-select-sm" id="r-{{ c }}" name="rating_{{ c }}"><option value="">—</option>{% for n in range(1, 6) %}<option>{{ n }}</option>{% endfor %}</select></div>
+              {% endfor %}
+              <div class="col-sm-6"><label class="form-label small" for="overall">Overall rating</label>
+                <select class="form-select form-select-sm" id="overall" name="overall_rating" required><option value="">Select…</option>{% for n in range(1, 6) %}<option>{{ n }}</option>{% endfor %}</select></div>
+              <div class="col-sm-6"><label class="form-label small" for="rec">Recommendation</label>
+                <select class="form-select form-select-sm" id="rec" name="recommendation" required><option value="">Select…</option>{% for k, v in recommendations.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+              <div class="col-md-6"><label class="form-label small" for="strengths">Strengths</label><textarea class="form-control form-control-sm" id="strengths" name="strengths" rows="3" maxlength="4000"></textarea></div>
+              <div class="col-md-6"><label class="form-label small" for="concerns">Concerns</label><textarea class="form-control form-control-sm" id="concerns" name="concerns" rows="3" maxlength="4000"></textarea></div>
+              <div class="col-12"><label class="form-label small" for="fnotes">Other notes</label><textarea class="form-control form-control-sm" id="fnotes" name="notes" rows="2" maxlength="4000"></textarea></div>
+            </div>
+            <button class="btn btn-primary btn-sm mt-3" type="submit" data-confirm="Submit your scorecard? It can’t be edited afterwards.">Submit scorecard</button>
+          </form>
+          {% else %}<div class="alert alert-info small mb-0">You can submit your scorecard once the interview has started.</div>{% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4 d-grid gap-3 align-content-start">
+    {% if can_manage and iv.status == 'scheduled' %}
+    <div class="card"><div class="card-header">Reschedule</div><div class="card-body">
+      <form method="post" action="{{ url_for('interviews.reschedule', interview_id=iv.id) }}">{{ ui.csrf() }}
+        <label class="form-label small" for="rs-when">New date & time</label>
+        <input class="form-control form-control-sm mb-2" type="datetime-local" id="rs-when" name="scheduled_local" value="{{ local_start.strftime('%Y-%m-%dT%H:%M') }}" required>
+        <label class="form-label small" for="rs-tz">Time zone</label>
+        <select class="form-select form-select-sm mb-2" id="rs-tz" name="timezone">
+          {% for z in [iv.timezone] + (common_zones|reject('equalto', iv.timezone)|list) %}<option value="{{ z }}">{{ z }}</option>{% endfor %}
+          <optgroup label="All time zones">{% for z in other_zones if z not in common_zones and z != iv.timezone %}<option value="{{ z }}">{{ z }}</option>{% endfor %}</optgroup>
+        </select>
+        <label class="form-label small" for="rs-reason">Reason (shared with participants)</label>
+        <input class="form-control form-control-sm mb-2" id="rs-reason" name="reason" maxlength="500">
+        <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>Reschedule & notify</button>
+      </form>
+    </div></div>
+    {% endif %}
+
+    {% if iv.status == 'scheduled' and (can_manage or is_interviewer) %}
+    <div class="card"><div class="card-header">Status</div><div class="card-body d-grid gap-2">
+      <form method="post" action="{{ url_for('interviews.status', interview_id=iv.id) }}">{{ ui.csrf() }}
+        <input type="hidden" name="status" value="completed">
+        <button class="btn btn-sm btn-success w-100" type="submit" {% if not started %}disabled title="Available once the interview has started"{% endif %} data-confirm="Mark this interview as completed?"><i class="bi bi-check2-circle me-1"></i>Mark completed</button>
+      </form>
+      {% if can_manage %}
+      <form method="post" action="{{ url_for('interviews.status', interview_id=iv.id) }}">{{ ui.csrf() }}
+        <input type="hidden" name="status" value="cancelled">
+        <label class="form-label small" for="cancel-reason">Cancellation reason</label>
+        <input class="form-control form-control-sm mb-2" id="cancel-reason" name="reason" maxlength="255" required>
+        <button class="btn btn-sm btn-outline-danger w-100" type="submit" data-confirm="Cancel this interview? Participants will be notified.">Cancel interview</button>
+      </form>{% endif %}
+    </div></div>
+    {% endif %}
+
+    <div class="card"><div class="card-header">Candidate</div><div class="card-body small">
+      <div class="fw-semibold">{{ cand.user.full_name }}</div>
+      {% if cand.headline %}<div class="small-muted mb-2">{{ cand.headline }}</div>{% endif %}
+      <div class="mb-2">{{ ui.skills(cand.skills) }}</div>
+      <div class="small-muted">Required for this role:</div>
+      <div>{{ ui.skills(app.job.required_skills, 'kw') }}</div>
+      {% if app.resume %}<a class="btn btn-sm btn-light mt-3" href="{{ url_for('files.resume', resume_id=app.resume.id) }}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text me-1"></i>Open resume</a>{% endif %}
+      {% if limited %}<div class="small-muted mt-2"><i class="bi bi-eye-slash me-1"></i>Contact details are hidden for interview-only access.</div>{% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

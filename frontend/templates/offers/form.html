@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ 'Edit offer' if offer else 'New offer' }}{% endblock %}
+{% block content %}
+{% set cand = app.candidate %}
+{% set title = 'Edit offer' if offer else 'Create offer' %}
+{{ ui.page_header(title, cand.user.full_name ~ ' · ' ~ app.job.title, [('Offers', url_for('offers.list_offers')), (cand.user.full_name, url_for('applications.detail', app_id=app.id)), (title, None)]) }}
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <form method="post" class="card">{{ ui.csrf() }}
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label" for="designation">Designation</label>
+            <input class="form-control" id="designation" name="designation" required minlength="2" maxlength="150" value="{{ offer.designation if offer else app.job.title }}"></div>
+          <div class="col-md-6"><label class="form-label" for="department">Department</label>
+            <select class="form-select" id="department" name="department_id" required>
+              {% set sel = offer.department_id if offer else app.job.department_id %}
+              {% for d in departments %}<option value="{{ d.id }}" {% if d.id == sel %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+            </select></div>
+          <div class="col-md-4"><label class="form-label" for="salary">Annual salary</label>
+            <input class="form-control" type="number" id="salary" name="salary" min="1" step="0.01" required value="{{ offer.salary if offer else '' }}"></div>
+          <div class="col-md-2"><label class="form-label" for="currency">Currency</label>
+            <input class="form-control text-uppercase" id="currency" name="currency" required pattern="[A-Za-z]{3}" maxlength="3" value="{{ currency or 'INR' }}"></div>
+          <div class="col-md-3"><label class="form-label" for="joining">Joining date</label>
+            <input class="form-control" type="date" id="joining" name="joining_date" required value="{{ offer.joining_date.isoformat() if offer else '' }}"></div>
+          <div class="col-md-3"><label class="form-label" for="expires">Offer expires</label>
+            <input class="form-control" type="date" id="expires" name="expires_on" value="{{ offer.expires_on.isoformat() if offer and offer.expires_on else '' }}">
+            <div class="form-text">Blank = organisation default.</div></div>
+          <div class="col-12"><label class="form-label" for="terms">Terms & conditions</label>
+            <textarea class="form-control" id="terms" name="terms" rows="8" maxlength="10000" placeholder="Probation period, notice period, benefits, location, working hours…">{{ offer.terms if offer and offer.terms else '' }}</textarea></div>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent d-flex flex-wrap justify-content-end gap-2">
+        <a class="btn btn-light" href="{{ url_for('offers.detail', offer_id=offer.id) if offer else url_for('applications.detail', app_id=app.id) }}">Cancel</a>
+        {{ ui.submit('Save draft', 'btn-light', 'bi-save') }}
+        {% if not offer %}{{ ui.submit('Save & submit for approval', 'btn-primary', 'bi-send', name='submit_for_approval', value='1') }}{% endif %}
+      </div>
+    </form>
+  </div>
+  <div class="col-xl-4">
+    <div class="card"><div class="card-body small">
+      <h2 class="h6 fw-bold">Approval flow</h2>
+      <ol class="ps-3 mb-0">
+        <li>Draft is saved and versioned.</li>
+        <li>An HR Manager or Super Admin approves or requests a revision.</li>
+        <li>On approval a PDF offer letter is generated and the offer is extended to the candidate.</li>
+        <li>The candidate accepts or declines in their portal; acceptance creates the employee record and onboarding tasks in one transaction.</li>
+      </ol>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

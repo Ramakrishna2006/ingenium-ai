@@ -1,0 +1,14 @@
+{% extends "auth/_layout.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Choose a new password{% endblock %}
+{% block form %}
+<h1 class="h3 fw-bold mb-4">Choose a new password</h1>
+<form method="post">
+  {{ ui.csrf() }}
+  <div class="mb-3"><label class="form-label" for="password">New password</label>
+    <input class="form-control" type="password" id="password" name="password" required minlength="10" autocomplete="new-password"></div>
+  <div class="mb-4"><label class="form-label" for="confirm_password">Confirm password</label>
+    <input class="form-control" type="password" id="confirm_password" name="confirm_password" required minlength="10" autocomplete="new-password"></div>
+  {{ ui.submit('Update password', 'btn-primary w-100 py-2') }}
+</form>
+{% endblock %}

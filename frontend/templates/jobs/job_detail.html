@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ job.title }}{% endblock %}
+{% block content %}
+{% call ui.page_header(job.title, job.department.name ~ ' · ' ~ job.employment_type_label ~ ' · ' ~ (job.location or 'Flexible'), [('Vacancies', url_for('jobs.manage_list')), (job.title, None)]) %}
+  {{ ui.status(job.status) }}
+  {% if can_manage and job.status != 'archived' %}<a class="btn btn-light" href="{{ url_for('jobs.edit_job', job_id=job.id) }}"><i class="bi bi-pencil me-1"></i>Edit</a>{% endif %}
+  {% if job.status == 'published' %}<a class="btn btn-light" href="{{ url_for('careers.job_detail', job_id=job.id) }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Public page</a>{% endif %}
+{% endcall %}
+
+{% if can_manage and transitions %}
+<div class="card mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-2">
+  <span class="small-muted me-2">Change status:</span>
+  {% for t in transitions %}
+  <form method="post" action="{{ url_for('jobs.job_status', job_id=job.id) }}">{{ ui.csrf() }}<input type="hidden" name="status" value="{{ t }}">
+    {{ ui.submit({'published': 'Publish', 'paused': 'Pause', 'closed': 'Close', 'archived': 'Archive'}[t],
+       'btn-sm ' ~ ('btn-teal' if t == 'published' else 'btn-light'),
+       confirm=('Archived vacancies cannot be edited or reopened. Continue?' if t == 'archived' else ('Close this vacancy to new applications?' if t == 'closed' else None))) }}</form>
+  {% endfor %}
+</div></div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-xl-8 d-grid gap-3 align-content-start">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">Applications ({{ apps|length }}) <a class="small" href="{{ url_for('applications.pipeline', job=job.id) }}">Pipeline view</a></div>
+      {% if apps %}
+      <div class="table-responsive"><table class="table table-hover align-middle">
+        <thead><tr><th scope="col">Candidate</th><th scope="col">Submitted</th><th scope="col">Skill overlap</th><th scope="col">Status</th></tr></thead>
+        <tbody>{% for a in apps %}{% set s = a.latest_screening %}
+          <tr><td><a class="row-link" href="{{ url_for('applications.detail', app_id=a.id) }}">{{ a.candidate.user.full_name }}</a></td>
+            <td class="small-muted">{{ a.submitted_at|dt('%d %b %Y') }}</td>
+            <td>{% if s and s.skill_overlap is not none %}<div class="d-flex align-items-center gap-2"><div class="meter flex-grow-1" style="max-width:90px"><span style="width: {{ s.skill_overlap }}%"></span></div><span class="small">{{ s.skill_overlap|pct }}</span></div>{% else %}<span class="small-muted">Not screened</span>{% endif %}</td>
+            <td>{{ ui.status(a.status, a.status_label) }}</td></tr>{% endfor %}</tbody></table></div>
+      <div class="card-body pt-2 small-muted">Skill overlap is the share of required skills documented by the candidate — a review aid, not a ranking.</div>
+      {% else %}{{ ui.empty('bi-inbox', 'No applications yet', 'Applications appear here once candidates apply.' if job.status == 'published' else 'Publish this vacancy to start receiving applications.') }}{% endif %}
+    </div>
+    <div class="card"><div class="card-header">Description</div><div class="card-body">
+      <div class="prose-pre small">{{ job.description }}</div>
+      {% if job.qualifications %}<h3 class="h6 fw-bold mt-3">Qualifications</h3><div class="prose-pre small">{{ job.qualifications }}</div>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-xl-4 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-body">
+      <h3 class="h6 fw-bold">Required skills</h3><div class="mb-2">{{ ui.skills(job.required_skills, 'kw') }}</div>
+      {% if job.preferred_skills %}<h3 class="h6 fw-bold">Nice to have</h3><div class="mb-2">{{ ui.skills(job.preferred_skills) }}</div>{% endif %}
+      <dl class="row small mb-0 mt-3">
+        <dt class="col-6 small-muted fw-normal">Experience</dt><dd class="col-6">{{ job.experience_min_years if job.experience_min_years is not none else '—' }}{% if job.experience_max_years is not none %}–{{ job.experience_max_years }}{% endif %} yrs</dd>
+        <dt class="col-6 small-muted fw-normal">Openings</dt><dd class="col-6">{{ job.headcount }}</dd>
+        <dt class="col-6 small-muted fw-normal">Deadline</dt><dd class="col-6">{{ job.application_deadline|date }}</dd>
+        <dt class="col-6 small-muted fw-normal">Recruiter</dt><dd class="col-6">{{ job.recruiter.full_name if job.recruiter else '—' }}</dd>
+        <dt class="col-6 small-muted fw-normal">Hiring manager</dt><dd class="col-6">{{ job.hiring_manager.full_name if job.hiring_manager else '—' }}</dd>
+        <dt class="col-6 small-muted fw-normal">Created</dt><dd class="col-6">{{ job.created_at|date }}</dd>
+        <dt class="col-6 small-muted fw-normal">Published</dt><dd class="col-6">{{ job.published_at|date }}</dd>
+      </dl>
+    </div></div>
+    {% if current_user.can('clustering.view') %}
+    <div class="card">
+      <div class="card-header">Job family & similar roles</div>
+      <div class="card-body">
+        {% if cluster %}
+          <div class="small-muted">Cluster (latest run)</div>
+          <a class="fw-semibold" href="{{ url_for('jobs.clusters', cluster=cluster.index) }}">{{ cluster.label }}</a>
+          <div class="mt-1">{% for k in cluster.keywords[:6] %}<span class="chip kw">{{ k }}</span>{% endfor %}</div>
+        {% else %}<p class="small-muted">Not in the latest clustering run{% if job.status != 'published' %} (only published jobs are clustered){% endif %}.</p>{% endif %}
+        <h3 class="h6 fw-bold mt-3">Similar published roles</h3>
+        {% for s in similar %}
+          <div class="d-flex justify-content-between align-items-start border-top pt-2 mt-2">
+            <div><a class="fw-semibold small" href="{{ url_for('jobs.job_detail', job_id=s.job.id) }}">{{ s.job.title }}</a>
+              <div class="small-muted">{% if s.shared_skills %}Shared: {{ s.shared_skills|join(', ') }}{% else %}No shared required skills{% endif %}{% if s.same_cluster %} · same family{% endif %}</div></div>
+            <span class="badge text-bg-indigo" title="TF-IDF cosine similarity">{{ '%.2f'|format(s.similarity) }}</span>
+          </div>
+        {% else %}<p class="small-muted mb-0">No sufficiently similar published roles.</p>{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

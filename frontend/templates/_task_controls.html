@@ -1,0 +1,15 @@
+{# Inline status control for an onboarding task. Expects `t` (task) and `allow_reopen` (bool). #}
+{% if t.status == 'completed' and not allow_reopen %}
+  <span class="small text-success"><i class="bi bi-check2-circle me-1"></i>Done {{ t.completed_at|date }}</span>
+{% else %}
+<form method="post" action="{{ url_for('employees.task_status', task_id=t.id) }}" class="d-flex flex-wrap gap-1 align-items-start">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label class="visually-hidden" for="ts-{{ t.id }}">Status for {{ t.title }}</label>
+  <select class="form-select form-select-sm w-auto" id="ts-{{ t.id }}" name="status">
+    {% for s in ('pending', 'in_progress', 'completed', 'blocked') %}<option value="{{ s }}" {% if t.status == s %}selected{% endif %}>{{ s|humanize }}</option>{% endfor %}
+  </select>
+  <span data-show-when="status=blocked"><label class="visually-hidden" for="tb-{{ t.id }}">Why is it blocked?</label>
+    <input class="form-control form-control-sm" id="tb-{{ t.id }}" name="blocked_reason" maxlength="255" placeholder="Why is it blocked?" value="{{ t.blocked_reason or '' }}"></span>
+  <button class="btn btn-sm btn-light" type="submit" data-loading>Update</button>
+</form>
+{% endif %}

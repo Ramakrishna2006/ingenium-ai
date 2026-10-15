@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Job comparison · {{ cand.user.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header('Multi-job comparison', cand.user.full_name ~ ' compared with ' ~ result.rows|length ~ ' vacanc' ~ ('y' if result.rows|length == 1 else 'ies'),
+   [('Candidates', url_for('candidates.directory')), (cand.user.full_name, url_for('candidates.profile', candidate_id=cand.id)), ('Comparison', None)]) %}{% endcall %}
+{% if not result.has_resume %}<div class="alert alert-warning">This candidate has no resume, so only profile skills could be used (nothing can be “evidenced”).</div>{% endif %}
+
+<div class="card mb-3">
+  <div class="table-responsive"><table class="table align-middle">
+    <thead><tr><th scope="col">Vacancy</th><th scope="col">Job family</th><th scope="col">Skill overlap</th><th scope="col">Text similarity</th><th scope="col">Experience</th><th scope="col">Evidence</th></tr></thead>
+    <tbody>
+    {% for r in result.rows %}
+      <tr>
+        <td><a class="row-link" href="{{ url_for('jobs.job_detail', job_id=r.job_id) }}">{{ r.job_title }}</a><div class="small-muted">{{ r.department }}</div></td>
+        <td class="small">{{ r.cluster.label if r.cluster else '—' }}</td>
+        <td style="min-width:130px">{% if r.skill_overlap is not none %}<div class="fw-semibold">{{ r.skill_overlap|pct }}</div><div class="meter"><span style="width: {{ r.skill_overlap }}%"></span></div>{% else %}<span class="small-muted">n/a</span>{% endif %}</td>
+        <td>{{ '%.2f'|format(r.text_similarity) }}</td>
+        <td>{{ ui.status({'meets': 'completed', 'below': 'pending', 'unknown': 'draft'}[r.experience_check], r.experience_check|humanize) }}
+          <div class="small-muted">{{ r.candidate_years if r.candidate_years is not none else '?' }} / {{ r.job_min_years if r.job_min_years is not none else '–' }}+ yrs</div></td>
+        <td style="min-width:260px">
+          {% for s in r.matched_skills %}<span class="chip match"><i class="bi bi-check2"></i>{{ s }}</span>{% endfor %}
+          {% for s in r.claimed_skills %}<span class="chip claimed" title="In profile, not found in resume"><i class="bi bi-question"></i>{{ s }}</span>{% endfor %}
+          {% for s in r.missing_skills %}<span class="chip missing"><i class="bi bi-x"></i>{{ s }}</span>{% endfor %}
+        </td>
+      </tr>
+      <tr><td colspan="6" class="small-muted pt-0 border-bottom">{{ r.explanation }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+  <div class="card-body small-muted pt-2">
+    <span class="chip match">evidenced in resume</span><span class="chip claimed">claimed in profile only</span><span class="chip missing">not evidenced</span>
+    <ul class="mb-0 mt-2">{% for n in result.notes %}<li>{{ n }}</li>{% endfor %}</ul>
+  </div>
+</div>
+
+{% if ai %}
+<div class="ai-box mb-3"><div class="ai-label mb-1"><i class="bi bi-stars"></i> AI explanation (review before use)</div>
+  <p class="small mb-2">{{ ai.explanation }}</p>
+  {% for n in ai.per_job %}<div class="small"><strong>Job #{{ n.job_id }}:</strong> {{ n.note }}</div>{% endfor %}
+</div>
+{% elif ai_error %}<div class="alert alert-warning small">AI explanation unavailable: {{ ai_error }}</div>{% endif %}
+
+<div class="card"><div class="card-header">Related open roles (by text similarity)</div>
+  {% if result.related_roles %}<ul class="list-group list-group-flush">
+    {% for r in result.related_roles %}<li class="list-group-item d-flex justify-content-between"><a href="{{ url_for('jobs.job_detail', job_id=r.job_id) }}">{{ r.title }}</a><span class="small-muted">{{ r.department }} · {{ '%.2f'|format(r.text_similarity) }}</span></li>{% endfor %}
+  </ul>{% else %}<div class="card-body small-muted">No other sufficiently related open roles.</div>{% endif %}
+</div>
+{% endblock %}

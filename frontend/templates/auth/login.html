@@ -1,0 +1,40 @@
+{% extends "auth/_layout.html" %}
+{% import "_macros.html" as ui with context %}
+{% set portal = request.args.get('as') %}
+{% block title %}{{ 'Employee sign in' if portal == 'employee' else ('Candidate sign in' if portal == 'candidate' else 'Sign in') }}{% endblock %}
+{% block side_title %}{% if portal == 'employee' %}Your hiring and onboarding workspace.{% elif portal == 'candidate' %}Apply once. Track everything.{% else %}One flow from vacancy to first day.{% endif %}{% endblock %}
+{% block form %}
+<div class="btn-group w-100 mb-4" role="group" aria-label="Choose sign-in type">
+  <a class="btn btn-sm {{ 'btn-teal' if portal == 'candidate' else 'btn-light' }}" href="{{ url_for('auth.login', **{'as': 'candidate'}) }}" {% if portal == 'candidate' %}aria-current="page"{% endif %}><i class="bi bi-send me-1"></i>Job seeker</a>
+  <a class="btn btn-sm {{ 'btn-primary' if portal == 'employee' else 'btn-light' }}" href="{{ url_for('auth.login', **{'as': 'employee'}) }}" {% if portal == 'employee' %}aria-current="page"{% endif %}><i class="bi bi-person-badge me-1"></i>Employee & staff</a>
+</div>
+{% if portal == 'employee' %}
+  <h1 class="h3 fw-bold mb-1">Employee sign in</h1>
+  <p class="small-muted mb-4">For HR, recruiters, hiring managers, interviewers and new employees completing onboarding.</p>
+{% elif portal == 'candidate' %}
+  <h1 class="h3 fw-bold mb-1">Candidate sign in</h1>
+  <p class="small-muted mb-4">Sign in to apply for jobs and track your applications.</p>
+{% else %}
+  <h1 class="h3 fw-bold mb-1">Welcome back</h1>
+  <p class="small-muted mb-4">Sign in to continue to Ingenium AI.</p>
+{% endif %}
+<form method="post" novalidate>
+  {{ ui.csrf() }}
+  <div class="mb-3"><label class="form-label" for="email">{{ 'Work email' if portal == 'employee' else 'Email' }}</label>
+    <input class="form-control" type="email" id="email" name="email" autocomplete="username" required value="{{ email or '' }}" autofocus></div>
+  <div class="mb-2"><label class="form-label" for="password">Password</label>
+    <input class="form-control" type="password" id="password" name="password" autocomplete="current-password" required></div>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="form-check"><input class="form-check-input" type="checkbox" id="remember" name="remember">
+      <label class="form-check-label small" for="remember">Keep me signed in</label></div>
+    <a class="small" href="{{ url_for('auth.forgot_password') }}">Forgot password?</a>
+  </div>
+  {{ ui.submit('Sign in', ('btn-teal' if portal == 'candidate' else 'btn-primary') ~ ' w-100 py-2', 'bi-box-arrow-in-right') }}
+</form>
+{% if portal == 'employee' %}
+  <div class="alert alert-light border small mt-4 mb-2"><i class="bi bi-info-circle me-1"></i>Employee and staff accounts are created by your HR administrator. New joiners sign in with the account they used to apply.</div>
+  <p class="small-muted mb-0">Looking for a job? <a href="{{ url_for('careers.apply_home') }}">Apply here</a></p>
+{% else %}
+  <p class="small-muted mt-4 mb-0">New candidate? <a href="{{ url_for('auth.register') }}">Create an account</a> · <a href="{{ url_for('careers.apply_home') }}">How to apply</a></p>
+{% endif %}
+{% endblock %}

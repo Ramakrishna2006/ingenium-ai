@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+{{ ui.page_header('System settings', 'Organisation-wide defaults. Changes are audited.', [('Administration', None), ('Settings', None)]) }}
+<form method="post" class="card" style="max-width:820px">{{ ui.csrf() }}
+  <div class="card-body"><div class="row g-3">
+    <div class="col-md-6"><label class="form-label" for="s-org">Organisation name</label><input class="form-control" id="s-org" name="org_name" required minlength="2" maxlength="150" value="{{ values.org_name }}"></div>
+    <div class="col-md-3"><label class="form-label" for="s-tz">Time zone</label><input class="form-control" id="s-tz" name="default_timezone" required maxlength="64" value="{{ values.default_timezone }}"><div class="form-text">IANA name, e.g. Asia/Kolkata</div></div>
+    <div class="col-md-3"><label class="form-label" for="s-cur">Currency</label><input class="form-control text-uppercase" id="s-cur" name="default_currency" required pattern="[A-Za-z]{3}" maxlength="3" value="{{ values.default_currency }}"></div>
+    <div class="col-md-4"><label class="form-label" for="s-prob">Probation (days)</label><input class="form-control" type="number" id="s-prob" name="probation_days" min="0" max="730" required value="{{ values.probation_days }}"></div>
+    <div class="col-md-4"><label class="form-label" for="s-offer">Offer validity (days)</label><input class="form-control" type="number" id="s-offer" name="offer_validity_days" min="1" max="90" required value="{{ values.offer_validity_days }}"></div>
+    <div class="col-md-4"><label class="form-label" for="s-ret">Resume retention (days)</label><input class="form-control" type="number" id="s-ret" name="resume_retention_days" min="30" max="3650" required value="{{ values.resume_retention_days }}"><div class="form-text">Applied by <code>flask purge-retention</code>.</div></div>
+    <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="s-wd" name="allow_application_withdrawal" {% if values.allow_application_withdrawal %}checked{% endif %}><label class="form-check-label" for="s-wd">Allow candidates to withdraw applications</label></div></div>
+  </div></div>
+  <div class="card-footer bg-transparent text-end">{{ ui.submit('Save settings', icon='bi-save') }}</div>
+</form>
+{% endblock %}

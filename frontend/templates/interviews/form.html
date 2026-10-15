@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Schedule interview{% endblock %}
+{% block content %}
+{% set cand = app.candidate %}
+{{ ui.page_header('Schedule interview', cand.user.full_name ~ ' · ' ~ app.job.title, [('Pipeline', url_for('applications.pipeline')), (cand.user.full_name, url_for('applications.detail', app_id=app.id)), ('Schedule interview', None)]) }}
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <form method="post" class="card" novalidate>{{ ui.csrf() }}
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="kind">Interview type</label>
+            <select class="form-select" id="kind" name="kind" required>
+              {% for key, label in kinds.items() %}<option value="{{ key }}" {% if request.form.get('kind') == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="duration">Duration (minutes)</label>
+            <input class="form-control" type="number" id="duration" name="duration_minutes" min="10" max="480" step="5" value="{{ request.form.get('duration_minutes', 45) }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="when">Date & time</label>
+            <input class="form-control" type="datetime-local" id="when" name="scheduled_local" value="{{ request.form.get('scheduled_local', '') }}" required>
+            <div class="form-text">Entered in the time zone selected alongside. Stored in UTC.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="tz">Time zone</label>
+            <select class="form-select" id="tz" name="timezone" required>
+              <optgroup label="Common">{% for z in common_zones %}<option value="{{ z }}" {% if request.form.get('timezone') == z %}selected{% endif %}>{{ z }}</option>{% endfor %}</optgroup>
+              <optgroup label="All time zones">{% for z in other_zones if z not in common_zones %}<option value="{{ z }}">{{ z }}</option>{% endfor %}</optgroup>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="link">Meeting link</label>
+            <input class="form-control" type="url" id="link" name="meeting_link" placeholder="https://meet.example.com/…" pattern="https://.*" value="{{ request.form.get('meeting_link', '') }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="loc">Location</label>
+            <input class="form-control" id="loc" name="location" maxlength="255" placeholder="Office, room…" value="{{ request.form.get('location', '') }}">
+            <div class="form-text">Provide a meeting link, a location, or both.</div>
+          </div>
+          <div class="col-12">
+            <fieldset>
+              <legend class="form-label">Interviewers <span class="small-muted fw-normal">(at least one)</span></legend>
+              {% if interviewers %}
+              <div class="row g-2">
+                {% for u in interviewers %}
+                <div class="col-sm-6 col-lg-4"><div class="form-check border rounded-3 p-2 ps-4 h-100">
+                  <input class="form-check-input" type="checkbox" name="interviewer_ids" value="{{ u.id }}" id="iv-{{ u.id }}" {% if u.id|string in request.form.getlist('interviewer_ids') %}checked{% endif %}>
+                  <label class="form-check-label" for="iv-{{ u.id }}"><span class="fw-semibold d-block">{{ u.full_name }}</span><span class="small-muted">{{ u.role_label }}</span></label>
+                </div></div>
+                {% endfor %}
+              </div>
+              {% else %}<div class="alert alert-warning small mb-0">No active staff users can give interview feedback. Ask an administrator to add an interviewer.</div>{% endif %}
+            </fieldset>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="notes">Notes for the panel <span class="small-muted fw-normal">(internal)</span></label>
+            <textarea class="form-control" id="notes" name="notes" rows="3" maxlength="4000" placeholder="Focus areas, logistics…">{{ request.form.get('notes', '') }}</textarea>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent d-flex justify-content-end gap-2">
+        <a class="btn btn-light" href="{{ url_for('applications.detail', app_id=app.id) }}">Cancel</a>
+        {{ ui.submit('Schedule & notify', icon='bi-calendar-check') }}
+      </div>
+    </form>
+  </div>
+  <div class="col-xl-4">
+    <div class="card"><div class="card-body small">
+      <h2 class="h6 fw-bold">What happens next</h2>
+      <ul class="mb-0 ps-3">
+        <li>The application moves to <strong>Interviewing</strong>.</li>
+        <li>Interviewers and the candidate receive an in-app notification.</li>
+        <li>Each interviewer submits an independent scorecard; they can’t see others’ feedback until they submit their own.</li>
+        <li>You can reschedule or cancel from the interview page.</li>
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

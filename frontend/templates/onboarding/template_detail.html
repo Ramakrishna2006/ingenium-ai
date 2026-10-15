@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ t.name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(t.name, (t.department.name if t.department else 'All departments') ~ ' · ' ~ t.items|length ~ ' items', [('Templates', url_for('onboarding.templates')), (t.name, None)]) %}
+  <form method="post" action="{{ url_for('onboarding.ai_suggest', template_id=t.id) }}">{{ ui.csrf() }}
+    <button class="btn btn-light" data-loading data-loading-text="Asking AI…"><i class="bi bi-stars me-1"></i>Suggest items with AI</button></form>
+{% endcall %}
+
+<div class="row g-3">
+  <div class="col-xl-8 d-grid gap-3 align-content-start">
+    <div class="card">
+      <div class="card-header">Checklist</div>
+      {% if t.items %}
+      <div class="table-responsive"><table class="table align-middle">
+        <thead><tr><th>#</th><th>Item</th><th>Owner</th><th>Due</th><th>Priority</th><th></th></tr></thead>
+        <tbody>
+          {% for i in t.items %}
+          <tr>
+            <td class="small-muted">{{ loop.index }}</td>
+            <td><div class="fw-semibold">{{ i.title }}</div><div class="small-muted">{{ categories.get(i.category, i.category) }}{% if i.doc_type %} · <code>{{ i.doc_type }}</code>{% endif %}</div></td>
+            <td class="small">{{ i.assignee_type|owner }}</td>
+            <td class="small">{% if i.due_offset_days == 0 %}Joining day{% elif i.due_offset_days < 0 %}{{ -i.due_offset_days }} day{{ 's' if i.due_offset_days != -1 }} before{% else %}{{ i.due_offset_days }} day{{ 's' if i.due_offset_days != 1 }} after{% endif %}</td>
+            <td>{{ ui.status(i.priority) }}</td>
+            <td class="text-end"><form method="post" action="{{ url_for('onboarding.delete_item', item_id=i.id) }}">{{ ui.csrf() }}
+              <button class="btn btn-sm btn-link text-danger" aria-label="Remove {{ i.title }}" data-confirm="Remove “{{ i.title }}” from this template? Existing employees’ tasks are not affected."><i class="bi bi-trash"></i></button></form></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}{{ ui.empty('bi-list-check', 'No items yet', 'Add checklist items below, or ask the AI for a starting point.') }}{% endif %}
+    </div>
+
+    <div class="card"><div class="card-header">Add checklist item</div><div class="card-body">
+      <form method="post" action="{{ url_for('onboarding.add_item', template_id=t.id) }}">{{ ui.csrf() }}
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label small" for="i-title">Title</label><input class="form-control form-control-sm" id="i-title" name="title" required minlength="2" maxlength="200"></div>
+          <div class="col-md-3"><label class="form-label small" for="i-cat">Category</label>
+            <select class="form-select form-select-sm" id="i-cat" name="category">{% for k, v in categories.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+          <div class="col-md-3"><label class="form-label small" for="i-who">Owner</label>
+            <select class="form-select form-select-sm" id="i-who" name="assignee_type">{% for a in assignee_types %}<option value="{{ a }}">{{ a|owner }}</option>{% endfor %}</select></div>
+          <div class="col-md-3"><label class="form-label small" for="i-off">Due (days from joining)</label><input class="form-control form-control-sm" type="number" id="i-off" name="due_offset_days" value="0" min="-60" max="365"></div>
+          <div class="col-md-3"><label class="form-label small" for="i-prio">Priority</label>
+            <select class="form-select form-select-sm" id="i-prio" name="priority">{% for p in priorities %}<option value="{{ p }}" {% if p == 'medium' %}selected{% endif %}>{{ p|humanize }}</option>{% endfor %}</select></div>
+          <div class="col-md-6" data-show-when="category=document"><label class="form-label small" for="i-doc">Document type key</label><input class="form-control form-control-sm" id="i-doc" name="doc_type" maxlength="60" pattern="[a-z0-9_]*" placeholder="e.g. id_proof"></div>
+          <div class="col-12"><label class="form-label small" for="i-desc">Description</label><textarea class="form-control form-control-sm" id="i-desc" name="description" rows="2" maxlength="2000"></textarea></div>
+        </div>
+        <button class="btn btn-sm btn-primary mt-2" type="submit" data-loading>Add item</button>
+      </form>
+    </div></div>
+  </div>
+
+  <div class="col-xl-4"><div class="card"><div class="card-header">Template settings</div><div class="card-body">
+    <form method="post" action="{{ url_for('onboarding.update_template', template_id=t.id) }}">{{ ui.csrf() }}
+      <label class="form-label small" for="t-name">Name</label>
+      <input class="form-control form-control-sm mb-2" id="t-name" name="name" required minlength="2" maxlength="150" value="{{ t.name }}">
+      <label class="form-label small" for="t-dept">Department</label>
+      <select class="form-select form-select-sm mb-2" id="t-dept" name="department_id"><option value="">All departments</option>{% for d in departments %}<option value="{{ d.id }}" {% if d.id == t.department_id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+      <label class="form-label small" for="t-kw">Role keyword</label>
+      <input class="form-control form-control-sm mb-2" id="t-kw" name="role_keyword" maxlength="80" value="{{ t.role_keyword or '' }}">
+      <label class="form-label small" for="t-desc">Description</label>
+      <textarea class="form-control form-control-sm mb-2" id="t-desc" name="description" rows="3" maxlength="2000">{{ t.description or '' }}</textarea>
+      <div class="form-check"><input class="form-check-input" type="checkbox" id="t-def" name="is_default" {% if t.is_default %}checked{% endif %}><label class="form-check-label small" for="t-def">Company-wide fallback</label></div>
+      <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="t-act" name="is_active" {% if t.is_active %}checked{% endif %}><label class="form-check-label small" for="t-act">Active</label></div>
+      <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>Save settings</button>
+    </form>
+  </div></div></div>
+</div>
+{% endblock %}

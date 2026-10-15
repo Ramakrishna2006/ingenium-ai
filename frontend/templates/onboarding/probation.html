@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Probation & check-ins{% endblock %}
+{% block content %}
+{{ ui.page_header('Probation & check-ins', 'Manager check-ins, goal reviews and probation reviews.', [('Dashboard', url_for('main.dashboard')), ('Probation', None)]) }}
+<ul class="nav nav-pills mb-3 gap-1">
+  <li class="nav-item"><a class="nav-link {% if show == 'open' %}active{% endif %}" href="{{ url_for('onboarding.probation', show='open') }}">Upcoming</a></li>
+  <li class="nav-item"><a class="nav-link {% if show != 'open' %}active{% endif %}" href="{{ url_for('onboarding.probation', show='all') }}">All</a></li>
+</ul>
+<div class="card">
+  {% if page.items %}
+  <div class="table-responsive"><table class="table table-hover align-middle">
+    <thead><tr><th>Milestone</th><th>Employee</th><th>Manager</th><th>Due</th><th>Status</th><th>Outcome</th></tr></thead>
+    <tbody>{% for m in page.items %}
+      {% set late = m.status == 'scheduled' and m.due_date < today %}
+      <tr><td><div class="fw-semibold">{{ m.title }}</div><div class="small-muted">{{ m.kind|humanize }}</div></td>
+        <td><a class="row-link" href="{{ url_for('employees.profile', employee_id=m.employee_id) }}#probation">{{ m.employee.user.full_name }}</a><div class="small-muted">{{ m.employee.designation }}</div></td>
+        <td class="small">{{ m.employee.manager.full_name if m.employee.manager else '—' }}</td>
+        <td class="small {% if late %}text-danger fw-semibold{% endif %}">{{ m.due_date|date }}{% if late %} (due){% endif %}</td>
+        <td>{{ ui.status(m.status) }}</td>
+        <td class="small">{{ m.outcome|humanize if m.outcome else '—' }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {{ ui.pagination(page, 'onboarding.probation') }}
+  {% else %}{{ ui.empty('bi-flag', 'Nothing scheduled', 'Check-ins and the probation review are created automatically when someone joins, and can be added from the employee profile.') }}{% endif %}
+</div>
+{% endblock %}

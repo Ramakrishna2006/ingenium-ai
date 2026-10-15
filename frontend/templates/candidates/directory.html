@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Candidates{% endblock %}
+{% block content %}
+{% call ui.page_header('Candidates', 'Candidates who applied to vacancies in your scope') %}{% endcall %}
+{% set rows = items if items is not none else page.items %}
+<div class="card">
+  <form class="card-header row g-2 align-items-end" method="get" role="search">
+    <div class="col-md-4"><label class="form-label small" for="q">Name or headline</label><input class="form-control form-control-sm" id="q" name="q" value="{{ filters.q }}"></div>
+    <div class="col-md-3"><label class="form-label small" for="skill">Has skill</label><input class="form-control form-control-sm" id="skill" name="skill" value="{{ filters.skill }}" placeholder="e.g. Python"></div>
+    <div class="col-md-3"><label class="form-label small" for="job">Applied to</label>
+      <select class="form-select form-select-sm" id="job" name="job"><option value="">Any vacancy</option>
+        {% for j in jobs %}<option value="{{ j.id }}" {% if filters.job == j.id %}selected{% endif %}>{{ j.title }}</option>{% endfor %}</select></div>
+    <div class="col-md-2 d-flex gap-2"><button class="btn btn-sm btn-primary" type="submit">Filter</button><a class="btn btn-sm btn-light" href="{{ url_for('candidates.directory') }}">Reset</a></div>
+  </form>
+  {% if rows %}
+  <div class="table-responsive"><table class="table table-hover align-middle">
+    <thead><tr><th scope="col">Candidate</th><th scope="col">Experience</th><th scope="col">Skills</th><th scope="col">Applications</th></tr></thead>
+    <tbody>
+      {% for c in rows %}
+      <tr><td><a class="row-link" href="{{ url_for('candidates.profile', candidate_id=c.id) }}">{{ c.user.full_name }}</a><div class="small-muted">{{ c.headline or '' }}</div></td>
+        <td>{{ c.years_experience ~ ' yrs' if c.years_experience is not none else '—' }}</td>
+        <td>{% for s in (c.skills or [])[:5] %}<span class="chip">{{ s }}</span>{% endfor %}{% if (c.skills or [])|length > 5 %}<span class="small-muted">+{{ c.skills|length - 5 }}</span>{% endif %}</td>
+        <td>{{ c.applications.count() }}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+  {% if page %}{{ ui.pagination(page, 'candidates.directory') }}{% endif %}
+  {% else %}{{ ui.empty('bi-people', 'No candidates found', 'Candidates appear once they apply to vacancies you can access.') }}{% endif %}
+</div>
+{% endblock %}

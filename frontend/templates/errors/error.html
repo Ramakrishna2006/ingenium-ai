@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Error {{ status }}{% endblock %}
+{% macro box() %}
+<div class="card mx-auto my-4" style="max-width:560px"><div class="card-body text-center p-5">
+  <div class="display-5 fw-bold text-primary tf-display">{{ status }}</div>
+  <p class="lead mt-2">{{ message }}</p>
+  <div class="d-flex justify-content-center gap-2 mt-3">
+    <a class="btn btn-primary" href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('main.index') }}">Go to {{ 'dashboard' if current_user.is_authenticated else 'home' }}</a>
+    {% if request.referrer %}<a class="btn btn-light" href="{{ request.referrer }}">Go back</a>{% endif %}
+  </div>
+</div></div>
+{% endmacro %}
+{% block content %}{{ box() }}{% endblock %}
+{% block public %}<div class="container">{{ box() }}</div>{% endblock %}

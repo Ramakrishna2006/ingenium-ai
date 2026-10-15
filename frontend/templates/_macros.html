@@ -1,0 +1,89 @@
+{% macro logo_mark() -%}
+{# Ingenium AI "Spark": the i of Ingenium, its dot a spark of talent. #}
+<svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="igg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="40" y2="40">
+      <stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#14b8a6"/>
+    </linearGradient>
+  </defs>
+  <rect width="40" height="40" rx="11" fill="url(#igg)"/>
+  <path d="M20 4.8c.75 4.1 1.9 5.3 6 6.1-4.1.8-5.25 2-6 6.1-.75-4.1-1.9-5.3-6-6.1 4.1-.8 5.25-2 6-6.1z" fill="#fff"/>
+  <rect x="17.6" y="19.5" width="4.8" height="14" rx="2.4" fill="#fff"/>
+</svg>
+{%- endmacro %}
+
+{% macro brand(href="/") -%}
+<a class="tf-brand" href="{{ href }}" aria-label="Ingenium AI home">{{ logo_mark() }}<span class="word">Ingenium <span>AI</span></span></a>
+{%- endmacro %}
+
+{% macro status(value, label=None) -%}
+<span class="badge text-bg-{{ value|badge }}">{{ label or value|humanize }}</span>
+{%- endmacro %}
+
+{% macro csrf() -%}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{%- endmacro %}
+
+{% macro page_header(title, subtitle=None, crumbs=None) -%}
+<div class="tf-page-head">
+  <div>
+    {% if crumbs %}
+    <nav aria-label="breadcrumb"><ol class="breadcrumb">
+      {% for label, href in crumbs %}
+        {% if href %}<li class="breadcrumb-item"><a href="{{ href }}">{{ label }}</a></li>
+        {% else %}<li class="breadcrumb-item active" aria-current="page">{{ label }}</li>{% endif %}
+      {% endfor %}
+    </ol></nav>
+    {% endif %}
+    <h1>{{ title }}</h1>
+    {% if subtitle %}<p class="sub">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if caller is defined %}<div class="d-flex flex-wrap gap-2 align-items-center">{{ caller() }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro empty(icon, title, text="", action_href=None, action_label=None) -%}
+<div class="tf-empty">
+  <i class="bi {{ icon }}" aria-hidden="true"></i>
+  <h3>{{ title }}</h3>
+  {% if text %}<p class="mb-3">{{ text }}</p>{% endif %}
+  {% if action_href %}<a class="btn btn-primary btn-sm" href="{{ action_href }}">{{ action_label }}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro pagination(page, endpoint) -%}
+{% if page.pages > 1 %}
+<nav aria-label="Pagination" class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+  <span class="small-muted">Page {{ page.page }} of {{ page.pages }} · {{ page.total }} results</span>
+  <ul class="pagination pagination-sm mb-0">
+    {% set args = request.args.to_dict() %}
+    <li class="page-item {% if not page.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for(endpoint, **dict(args, page=page.prev_num or 1, **kwargs)) }}" aria-label="Previous">&laquo;</a></li>
+    {% for p in page.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}<li class="page-item {% if p == page.page %}active{% endif %}"><a class="page-link" href="{{ url_for(endpoint, **dict(args, page=p, **kwargs)) }}">{{ p }}</a></li>
+      {% else %}<li class="page-item disabled"><span class="page-link">…</span></li>{% endif %}
+    {% endfor %}
+    <li class="page-item {% if not page.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for(endpoint, **dict(args, page=page.next_num or page.pages, **kwargs)) }}" aria-label="Next">&raquo;</a></li>
+  </ul>
+</nav>
+{% endif %}
+{%- endmacro %}
+
+{% macro kpi(icon, value, label, tone="indigo", href=None) -%}
+<div class="card h-100">
+  {% if href %}<a href="{{ href }}" class="text-reset text-decoration-none">{% endif %}
+  <div class="tf-kpi">
+    <div class="icon bg-{{ tone }}-soft"><i class="bi {{ icon }}" aria-hidden="true"></i></div>
+    <div><div class="value">{{ value if value is not none else "—" }}</div><div class="label">{{ label }}</div></div>
+  </div>
+  {% if href %}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro skills(items, cls="") -%}
+{% for s in items or [] %}<span class="chip {{ cls }}">{{ s }}</span>{% else %}<span class="small-muted">None listed</span>{% endfor %}
+{%- endmacro %}
+
+{% macro submit(label, cls="btn-primary", icon=None, confirm=None, name=None, value=None) -%}
+<button type="submit" class="btn {{ cls }}" data-loading {% if confirm %}data-confirm="{{ confirm }}"{% endif %}
+  {% if name %}name="{{ name }}" value="{{ value }}"{% endif %}>{% if icon %}<i class="bi {{ icon }} me-1" aria-hidden="true"></i>{% endif %}{{ label }}</button>
+{%- endmacro %}

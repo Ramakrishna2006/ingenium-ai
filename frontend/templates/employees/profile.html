@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ emp.user.full_name }}{% endblock %}
+{% block content %}
+{% call ui.page_header(emp.user.full_name, emp.designation ~ ' · ' ~ emp.department.name ~ ' · ' ~ emp.employee_code, [('Employees', url_for('employees.directory')), (emp.user.full_name, None)]) %}
+  {{ ui.status(emp.employment_status, emp.status_label) }}
+  {% if emp.offer and current_user.can('offer.view') %}<a class="btn btn-light" href="{{ url_for('offers.detail', offer_id=emp.offer_id) }}"><i class="bi bi-envelope-paper me-1"></i>Offer</a>{% endif %}
+{% endcall %}
+
+{% set p = emp.onboarding_progress %}
+{% set open_tasks = emp.tasks|rejectattr('status', 'equalto', 'completed')|list %}
+<div class="row g-3 mb-3">
+  <div class="col-sm-6 col-xl-3">{{ ui.kpi('bi-rocket-takeoff', p ~ '%', 'Onboarding complete', 'indigo') }}</div>
+  <div class="col-sm-6 col-xl-3">{{ ui.kpi('bi-list-check', open_tasks|length, 'Open tasks', 'amber') }}</div>
+  <div class="col-sm-6 col-xl-3">{{ ui.kpi('bi-file-earmark-check', emp.documents|selectattr('status', 'equalto', 'verified')|list|length ~ '/' ~ emp.documents|length, 'Documents verified', 'teal') }}</div>
+  <div class="col-sm-6 col-xl-3">{{ ui.kpi('bi-calendar-check', emp.joining_date|date, 'Joining date', 'slate') }}</div>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="empTabs" role="tablist">
+  {% for key, label in [('tasks', 'Tasks'), ('documents', 'Documents'), ('training', 'Training'), ('it', 'IT & equipment'), ('probation', 'Check-ins & probation'), ('details', 'Assignment')] %}
+  <li class="nav-item" role="presentation"><button class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ key }}" data-bs-toggle="tab" data-bs-target="#pane-{{ key }}" type="button" role="tab" aria-controls="pane-{{ key }}" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ label }}</button></li>
+  {% endfor %}
+</ul>
+
+<div class="tab-content">
+  {# ------------------------------------------------ Tasks #}
+  <div class="tab-pane fade show active" id="pane-tasks" role="tabpanel" aria-labelledby="tab-tasks" tabindex="0">
+    <div class="row g-3">
+      <div class="col-xl-8"><div class="card">
+        {% if emp.tasks %}
+        <div class="table-responsive"><table class="table align-middle">
+          <thead><tr><th>Task</th><th>Owner</th><th>Due</th><th>Priority</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+          {% for t in emp.tasks %}
+            {% set overdue = t.status != 'completed' and t.due_date and t.due_date < today %}
+            <tr>
+              <td><div class="fw-semibold">{{ t.title }}</div><div class="small-muted">{{ t.category_label }}{% if t.blocked_reason %} · <span class="text-danger">Blocked: {{ t.blocked_reason }}</span>{% endif %}</div></td>
+              <td class="small">{{ t.assignee.full_name if t.assignee else t.assignee_type|owner }}</td>
+              <td class="small {% if overdue %}text-danger fw-semibold{% endif %}">{{ t.due_date|date }}{% if overdue %} <i class="bi bi-exclamation-circle" title="Overdue"></i>{% endif %}</td>
+              <td>{{ ui.status(t.priority) }}</td>
+              <td>{{ ui.status(t.status) }}</td>
+              <td>{% if can_update_task(t) %}{% with allow_reopen=hr %}{% include "_task_controls.html" %}{% endwith %}{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        {% else %}{{ ui.empty('bi-list-check', 'No onboarding tasks', 'Assign tasks with the form alongside.') }}{% endif %}
+      </div></div>
+      {% if hr or is_manager %}
+      <div class="col-xl-4"><div class="card"><div class="card-header">Assign a task</div><div class="card-body">
+        <form method="post" action="{{ url_for('employees.add_task', employee_id=emp.id) }}">{{ ui.csrf() }}
+          <label class="form-label small" for="t-title">Title</label>
+          <input class="form-control form-control-sm mb-2" id="t-title" name="title" required minlength="2" maxlength="200">
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label small" for="t-cat">Category</label>
+              <select class="form-select form-select-sm" id="t-cat" name="category">{% for k, v in categories.items() %}<option value="{{ k }}" {% if k == 'hr' %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+            <div class="col-6"><label class="form-label small" for="t-prio">Priority</label>
+              <select class="form-select form-select-sm" id="t-prio" name="priority">{% for pr in priorities %}<option value="{{ pr }}" {% if pr == 'medium' %}selected{% endif %}>{{ pr|humanize }}</option>{% endfor %}</select></div>
+            <div class="col-6"><label class="form-label small" for="t-who">Owner type</label>
+              <select class="form-select form-select-sm" id="t-who" name="assignee_type">{% for a in assignee_types %}<option value="{{ a }}">{{ a|owner }}</option>{% endfor %}</select></div>
+            <div class="col-6"><label class="form-label small" for="t-due">Due date</label>
+              <input class="form-control form-control-sm" type="date" id="t-due" name="due_date"></div>
+            <div class="col-12"><label class="form-label small" for="t-user">Specific person <span class="small-muted">(optional)</span></label>
+              <select class="form-select form-select-sm" id="t-user" name="assignee_user_id"><option value="">— Anyone in that group —</option>{% for u in staff %}<option value="{{ u.id }}">{{ u.full_name }} ({{ u.role_label }})</option>{% endfor %}</select></div>
+            <div class="col-12"><label class="form-label small" for="t-desc">Details</label>
+              <textarea class="form-control form-control-sm" id="t-desc" name="description" rows="2" maxlength="2000"></textarea></div>
+          </div>
+          <button class="btn btn-sm btn-primary mt-2 w-100" type="submit" data-loading>Assign task</button>
+        </form>
+      </div></div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ------------------------------------------------ Documents #}
+  <div class="tab-pane fade" id="pane-documents" role="tabpanel" aria-labelledby="tab-documents" tabindex="0">
+    <div class="row g-3">
+      <div class="col-xl-8"><div class="card">
+        {% if emp.documents %}
+        <ul class="list-group list-group-flush">
+          {% for d in emp.documents %}
+          <li class="list-group-item">
+            <div class="d-flex flex-wrap justify-content-between gap-2 align-items-center">
+              <div><div class="fw-semibold">{{ d.title }}{% if d.required %} <span class="small-muted">(required)</span>{% endif %}</div>
+                <div class="small-muted">{% if d.submitted_at %}Uploaded {{ d.submitted_at|dt }} · {{ d.original_filename }}{% else %}Awaiting upload from employee{% endif %}
+                  {% if d.verified_at %} · reviewed by {{ d.verified_by.full_name if d.verified_by else '—' }} {{ d.verified_at|dt }}{% endif %}</div>
+                {% if d.review_notes %}<div class="small text-danger">{{ d.review_notes }}</div>{% endif %}</div>
+              <div class="d-flex gap-2 align-items-center">{{ ui.status(d.status) }}
+                {% if d.stored_filename %}<a class="btn btn-sm btn-light" href="{{ url_for('files.document', doc_id=d.id) }}" target="_blank" rel="noopener"><i class="bi bi-eye me-1"></i>View</a>{% endif %}</div>
+            </div>
+            {% if hr and d.status == 'submitted' %}
+            <form method="post" action="{{ url_for('employees.review_document', doc_id=d.id) }}" class="d-flex flex-wrap gap-2 mt-2">{{ ui.csrf() }}
+              <label class="visually-hidden" for="dn-{{ d.id }}">Review note</label>
+              <input class="form-control form-control-sm" style="max-width:320px" id="dn-{{ d.id }}" name="notes" maxlength="500" placeholder="Note (required to reject)">
+              <button class="btn btn-sm btn-success" name="decision" value="verified" data-loading>Verify</button>
+              <button class="btn btn-sm btn-outline-danger" name="decision" value="rejected" data-loading>Reject</button>
+            </form>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}{{ ui.empty('bi-folder2-open', 'No documents requested') }}{% endif %}
+      </div></div>
+      {% if hr %}
+      <div class="col-xl-4"><div class="card"><div class="card-header">Request a document</div><div class="card-body">
+        <form method="post" action="{{ url_for('employees.request_document', employee_id=emp.id) }}">{{ ui.csrf() }}
+          <label class="form-label small" for="doc-title">Document</label>
+          <input class="form-control form-control-sm mb-2" id="doc-title" name="title" required minlength="2" maxlength="150" placeholder="e.g. Address proof">
+          <label class="form-label small" for="doc-type">Type key <span class="small-muted">(optional)</span></label>
+          <input class="form-control form-control-sm mb-2" id="doc-type" name="doc_type" maxlength="60" pattern="[a-z0-9_]*" placeholder="address_proof">
+          <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>Request from employee</button>
+        </form>
+        <p class="small-muted mt-2 mb-0">Files are stored privately and only HR and the employee can open them.</p>
+      </div></div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ------------------------------------------------ Training #}
+  <div class="tab-pane fade" id="pane-training" role="tabpanel" aria-labelledby="tab-training" tabindex="0">
+    <div class="row g-3">
+      <div class="col-xl-8"><div class="card">
+        {% if emp.trainings %}
+        <ul class="list-group list-group-flush">
+          {% for tr in emp.trainings %}
+          <li class="list-group-item d-flex flex-wrap justify-content-between gap-2 align-items-center">
+            <div><div class="fw-semibold">{{ tr.title }}{% if tr.is_mandatory %} <span class="badge text-bg-indigo">Mandatory</span>{% endif %}</div>
+              <div class="small-muted">Due {{ tr.due_date|date }}{% if tr.resource_url %} · <a href="{{ tr.resource_url }}" target="_blank" rel="noopener noreferrer">Open material</a>{% endif %}{% if tr.completed_at %} · completed {{ tr.completed_at|date }}{% endif %}</div></div>
+            <div class="d-flex gap-2 align-items-center">{{ ui.status(tr.status) }}
+              {% if hr or is_manager %}
+              <form method="post" action="{{ url_for('employees.training_status', training_id=tr.id) }}" class="d-flex gap-1">{{ ui.csrf() }}
+                <label class="visually-hidden" for="trs-{{ tr.id }}">Training status</label>
+                <select class="form-select form-select-sm w-auto" id="trs-{{ tr.id }}" name="status">{% for s in ('assigned','in_progress','completed') %}<option value="{{ s }}" {% if tr.status == s %}selected{% endif %}>{{ s|humanize }}</option>{% endfor %}</select>
+                <button class="btn btn-sm btn-light" data-loading>Save</button></form>{% endif %}</div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}{{ ui.empty('bi-mortarboard', 'No training assigned') }}{% endif %}
+      </div></div>
+      {% if hr or is_manager %}
+      <div class="col-xl-4"><div class="card"><div class="card-header">Assign training</div><div class="card-body">
+        <form method="post" action="{{ url_for('employees.add_training', employee_id=emp.id) }}">{{ ui.csrf() }}
+          <label class="form-label small" for="tr-title">Course / module</label>
+          <input class="form-control form-control-sm mb-2" id="tr-title" name="title" required minlength="2" maxlength="200">
+          <label class="form-label small" for="tr-url">Link to material</label>
+          <input class="form-control form-control-sm mb-2" type="url" id="tr-url" name="resource_url" maxlength="500" placeholder="https://…">
+          <label class="form-label small" for="tr-due">Due date</label>
+          <input class="form-control form-control-sm mb-2" type="date" id="tr-due" name="due_date">
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="tr-mand" name="is_mandatory" checked><label class="form-check-label small" for="tr-mand">Mandatory</label></div>
+          <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>Assign</button>
+        </form>
+      </div></div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ------------------------------------------------ IT #}
+  <div class="tab-pane fade" id="pane-it" role="tabpanel" aria-labelledby="tab-it" tabindex="0">
+    <div class="row g-3">
+      <div class="col-xl-8"><div class="card">
+        {% if emp.it_requests %}
+        <ul class="list-group list-group-flush">
+          {% for r in emp.it_requests %}
+          <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+            <div><div class="fw-semibold">{{ r.request_type|humanize }}</div><div class="small-muted">{{ r.details }}{% if r.notes %} · {{ r.notes }}{% endif %}</div></div>
+            {{ ui.status(r.status) }}</li>
+          {% endfor %}
+        </ul>
+        {% if hr %}<div class="card-body pt-0 small"><a href="{{ url_for('onboarding.it_requests') }}">Process requests in the IT & equipment queue →</a></div>{% endif %}
+        {% else %}{{ ui.empty('bi-laptop', 'No IT or equipment requests') }}{% endif %}
+      </div></div>
+      {% if hr or is_manager %}
+      <div class="col-xl-4"><div class="card"><div class="card-header">New request</div><div class="card-body">
+        <form method="post" action="{{ url_for('employees.add_it_request', employee_id=emp.id) }}">{{ ui.csrf() }}
+          <label class="form-label small" for="it-type">Type</label>
+          <select class="form-select form-select-sm mb-2" id="it-type" name="request_type">{% for t in it_types %}<option value="{{ t }}">{{ t|humanize }}</option>{% endfor %}</select>
+          <label class="form-label small" for="it-det">Details</label>
+          <textarea class="form-control form-control-sm mb-2" id="it-det" name="details" rows="2" required minlength="3" maxlength="500"></textarea>
+          <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>Create request</button>
+        </form>
+      </div></div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ------------------------------------------------ Probation #}
+  <div class="tab-pane fade" id="pane-probation" role="tabpanel" aria-labelledby="tab-probation" tabindex="0">
+    <div class="row g-3">
+      <div class="col-xl-8"><div class="card"><div class="card-body">
+        <p class="small-muted">Probation ends <strong>{{ emp.probation_end_date|date }}</strong>.</p>
+        {% if emp.milestones %}
+        <ol class="tf-timeline">
+          {% for m in emp.milestones %}
+          <li class="{% if m.status == 'completed' %}done{% endif %}">
+            <div class="d-flex flex-wrap justify-content-between gap-2"><div class="fw-semibold">{{ m.title }} <span class="small-muted fw-normal">· {{ m.kind|humanize }} · due {{ m.due_date|date }}</span></div>{{ ui.status(m.status) }}</div>
+            {% if m.goals %}<div class="small"><span class="fw-semibold">Goals:</span> <span class="prose-pre">{{ m.goals }}</span></div>{% endif %}
+            {% if m.status == 'completed' %}
+              <div class="small mt-1"><span class="fw-semibold">Feedback:</span> <span class="prose-pre">{{ m.feedback }}</span></div>
+              <div class="small-muted">{% if m.rating %}Rating {{ m.rating }}/5 · {% endif %}{% if m.outcome %}Outcome: <strong>{{ m.outcome|humanize }}</strong> · {% endif %}by {{ m.completed_by.full_name if m.completed_by else '—' }}, {{ m.completed_at|dt }}</div>
+            {% elif hr or is_manager %}
+              <details class="mt-1"><summary class="small fw-semibold">Record this {{ 'review' if m.kind == 'probation_review' else 'check-in' }}</summary>
+                <form method="post" action="{{ url_for('employees.complete_milestone', milestone_id=m.id) }}" class="mt-2">{{ ui.csrf() }}
+                  <label class="form-label small" for="mf-{{ m.id }}">Structured feedback</label>
+                  <textarea class="form-control form-control-sm mb-2" id="mf-{{ m.id }}" name="feedback" rows="3" required minlength="5" maxlength="4000"></textarea>
+                  <div class="row g-2">
+                    <div class="col-sm-4"><label class="form-label small" for="mr-{{ m.id }}">Rating</label>
+                      <select class="form-select form-select-sm" id="mr-{{ m.id }}" name="rating"><option value="">—</option>{% for n in range(1,6) %}<option>{{ n }}</option>{% endfor %}</select></div>
+                    {% if m.kind == 'probation_review' %}
+                    <div class="col-sm-8"><label class="form-label small" for="mo-{{ m.id }}">Probation outcome</label>
+                      <select class="form-select form-select-sm" id="mo-{{ m.id }}" name="outcome" required><option value="">Select…</option>{% for o in outcomes %}<option value="{{ o }}">{{ o|humanize }}</option>{% endfor %}</select></div>
+                    {% endif %}
+                    <div class="col-12"><label class="form-label small" for="mg-{{ m.id }}">Goals / development plan</label>
+                      <textarea class="form-control form-control-sm" id="mg-{{ m.id }}" name="goals" rows="2" maxlength="4000">{{ m.goals or '' }}</textarea></div>
+                  </div>
+                  <button class="btn btn-sm btn-primary mt-2" type="submit" {% if m.kind == 'probation_review' %}data-confirm="Record the probation outcome? This updates the employee’s status."{% endif %}>Save</button>
+                </form></details>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}{{ ui.empty('bi-flag', 'No check-ins scheduled') }}{% endif %}
+      </div></div></div>
+      {% if hr or is_manager %}
+      <div class="col-xl-4"><div class="card"><div class="card-header">Schedule a check-in</div><div class="card-body">
+        <form method="post" action="{{ url_for('employees.add_milestone', employee_id=emp.id) }}">{{ ui.csrf() }}
+          <label class="form-label small" for="ms-kind">Type</label>
+          <select class="form-select form-select-sm mb-2" id="ms-kind" name="kind">{% for k in milestone_kinds %}<option value="{{ k }}">{{ k|humanize }}</option>{% endfor %}</select>
+          <label class="form-label small" for="ms-title">Title</label>
+          <input class="form-control form-control-sm mb-2" id="ms-title" name="title" required minlength="2" maxlength="150" placeholder="60-day check-in">
+          <label class="form-label small" for="ms-due">Due date</label>
+          <input class="form-control form-control-sm mb-2" type="date" id="ms-due" name="due_date" required>
+          <label class="form-label small" for="ms-goals">Goals</label>
+          <textarea class="form-control form-control-sm mb-2" id="ms-goals" name="goals" rows="2" maxlength="4000"></textarea>
+          <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>Schedule</button>
+        </form>
+      </div></div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ------------------------------------------------ Assignment #}
+  <div class="tab-pane fade" id="pane-details" role="tabpanel" aria-labelledby="tab-details" tabindex="0">
+    <div class="row g-3">
+      <div class="col-xl-5"><div class="card"><div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5">Employee ID</dt><dd class="col-7"><code>{{ emp.employee_code }}</code></dd>
+          <dt class="col-5">Email</dt><dd class="col-7">{{ emp.user.email }}</dd>
+          <dt class="col-5">Designation</dt><dd class="col-7">{{ emp.designation }}</dd>
+          <dt class="col-5">Department</dt><dd class="col-7">{{ emp.department.name }}</dd>
+          <dt class="col-5">Manager</dt><dd class="col-7">{{ emp.manager.full_name if emp.manager else 'Not assigned' }}</dd>
+          <dt class="col-5">Employment type</dt><dd class="col-7">{{ emp.employment_type|humanize }}</dd>
+          <dt class="col-5">Location</dt><dd class="col-7">{{ emp.work_location or '—' }}</dd>
+          <dt class="col-5">Joining date</dt><dd class="col-7">{{ emp.joining_date|date }}</dd>
+          <dt class="col-5">Probation ends</dt><dd class="col-7">{{ emp.probation_end_date|date }}</dd>
+          {% if emp.application_id and current_user.can('application.view') %}<dt class="col-5">Hired from</dt><dd class="col-7"><a href="{{ url_for('applications.detail', app_id=emp.application_id) }}">Original application</a></dd>{% endif %}
+        </dl>
+      </div></div></div>
+      {% if can_manage and current_user.can('employee.manage') %}
+      <div class="col-xl-7"><div class="card"><div class="card-header">Department & manager assignment</div><div class="card-body">
+        <form method="post" action="{{ url_for('employees.assignment', employee_id=emp.id) }}">{{ ui.csrf() }}
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label small" for="as-dept">Department</label>
+              <select class="form-select form-select-sm" id="as-dept" name="department_id" required>{% for d in departments %}<option value="{{ d.id }}" {% if d.id == emp.department_id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+            <div class="col-md-6"><label class="form-label small" for="as-mgr">Manager</label>
+              <select class="form-select form-select-sm" id="as-mgr" name="manager_id"><option value="">— None —</option>{% for u in staff %}<option value="{{ u.id }}" {% if u.id == emp.manager_id %}selected{% endif %}>{{ u.full_name }} ({{ u.role_label }})</option>{% endfor %}</select></div>
+            <div class="col-md-6"><label class="form-label small" for="as-des">Designation</label>
+              <input class="form-control form-control-sm" id="as-des" name="designation" required minlength="2" maxlength="150" value="{{ emp.designation }}"></div>
+            <div class="col-md-6"><label class="form-label small" for="as-loc">Work location</label>
+              <input class="form-control form-control-sm" id="as-loc" name="work_location" maxlength="120" value="{{ emp.work_location or '' }}"></div>
+            <div class="col-md-6"><label class="form-label small" for="as-join">Joining date</label>
+              <input class="form-control form-control-sm" type="date" id="as-join" name="joining_date" required value="{{ emp.joining_date.isoformat() }}"></div>
+          </div>
+          <button class="btn btn-sm btn-primary mt-3" type="submit" data-confirm="Save the new assignment? This is recorded in the audit log.">Save assignment</button>
+        </form>
+      </div></div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/tabs.js') }}"></script>{% endblock %}

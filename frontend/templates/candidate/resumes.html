@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}Resumes{% endblock %}
+{% block content %}
+{% call ui.page_header('Resumes', 'Upload PDF or DOCX (max 5 MB). We extract skills to pre-fill your profile — you can correct them.') %}{% endcall %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <form class="card" method="post" action="{{ url_for('candidate.upload_resume') }}" enctype="multipart/form-data">
+      <div class="card-body">
+        {{ ui.csrf() }}
+        <h2 class="card-title mb-3">Upload a resume</h2>
+        <label class="form-label" for="resume">File</label>
+        <input class="form-control mb-3" type="file" id="resume" name="resume" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+        <p class="small-muted">Files are stored privately. Only you and recruiters for roles you apply to can open them.</p>
+        {{ ui.submit('Upload & analyse', 'btn-primary w-100', 'bi-cloud-arrow-up') }}
+      </div>
+    </form>
+  </div>
+  <div class="col-lg-8 d-grid gap-3 align-content-start">
+    {% for r in cand.resumes %}
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start">
+          <div>
+            <h2 class="h6 fw-bold mb-1"><i class="bi bi-file-earmark-text me-1"></i>{{ r.original_filename }}
+              {% if r.is_primary %}<span class="badge text-bg-indigo ms-1">Primary</span>{% endif %}</h2>
+            <div class="small-muted">{{ (r.size_bytes / 1024)|round(1) }} KB · uploaded {{ r.created_at|dt }} · {{ ui.status(r.parse_status) }}</div>
+            {% if r.parse_error %}<div class="small text-warning mt-1">{{ r.parse_error }}</div>{% endif %}
+          </div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-light" href="{{ url_for('files.resume', resume_id=r.id) }}" target="_blank" rel="noopener"><i class="bi bi-eye"></i> View</a>
+            {% if not r.is_primary %}
+            <form method="post" action="{{ url_for('candidate.primary_resume', resume_id=r.id) }}">{{ ui.csrf() }}
+              <button class="btn btn-sm btn-light" type="submit">Make primary</button></form>
+            {% endif %}
+            <form method="post" action="{{ url_for('candidate.delete_resume', resume_id=r.id) }}">{{ ui.csrf() }}
+              {{ ui.submit('Delete', 'btn-sm btn-outline-danger', confirm='Delete this resume permanently? Resumes attached to active applications cannot be deleted.') }}</form>
+          </div>
+        </div>
+        {% if r.parse_status == 'parsed' %}
+        <hr>
+        <form method="post" action="{{ url_for('candidate.correct_skills', resume_id=r.id) }}">
+          {{ ui.csrf() }}
+          <label class="form-label" for="skills-{{ r.id }}">Extracted skills <span class="small-muted">— correct anything we got wrong</span></label>
+          <input class="form-control mb-2" id="skills-{{ r.id }}" name="skills" value="{{ (r.extracted.skills or [])|join(', ') }}">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="apply_to_profile" id="apply-{{ r.id }}" value="1">
+              <label class="form-check-label small" for="apply-{{ r.id }}">Also add these to my profile skills</label></div>
+            <button class="btn btn-sm btn-primary" type="submit">Save skills</button>
+          </div>
+          <div class="row small mt-3">
+            <div class="col-md-6"><span class="small-muted">Education found:</span> {{ (r.extracted.education or ['—'])|join('; ') }}</div>
+            <div class="col-md-6"><span class="small-muted">Certifications found:</span> {{ (r.extracted.certifications or ['—'])|join('; ') }}</div>
+            <div class="col-12"><span class="small-muted">Experience stated:</span> {{ r.extracted.years_experience ~ ' years' if r.extracted.years_experience is not none else '—' }}</div>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="card">{{ ui.empty('bi-file-earmark-arrow-up', 'No resume yet', 'Upload your resume to start applying for roles.') }}</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}AI service{% endblock %}
+{% block content %}
+{{ ui.page_header('AI service', 'Diagnostics for the local Ollama model server. Recruitment works normally when AI is offline.', [('Administration', None), ('AI service', None)]) }}
+{% set ok = status.reachable and status.model_available %}
+<div class="row g-3">
+  <div class="col-xl-8 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-body d-flex flex-wrap gap-4 align-items-center">
+      <div class="tf-kpi p-0"><div class="icon {{ 'bg-teal-soft' if ok else ('bg-amber-soft' if status.reachable else 'bg-rose-soft') }}"><i class="bi {{ 'bi-cpu' if ok else 'bi-exclamation-triangle' }}"></i></div>
+        <div><div class="value fs-5">{{ 'Ready' if ok else ('Model missing' if status.reachable else ('Disabled' if not status.enabled else 'Offline')) }}</div><div class="label">Overall status</div></div></div>
+      <div class="small"><div class="small-muted">Endpoint</div><code>{{ status.base_url }}</code></div>
+      <div class="small"><div class="small-muted">Active model</div><code>{{ status.model }}</code></div>
+      <div class="small"><div class="small-muted">Latency</div>{{ (status.latency_ms ~ ' ms') if status.latency_ms is not none else '—' }}</div>
+      <a class="btn btn-sm btn-light ms-auto" href="{{ url_for('admin.ai_status') }}"><i class="bi bi-arrow-clockwise me-1"></i>Re-check</a>
+    </div>
+    {% if status.error %}<div class="alert alert-warning small m-3 mt-0"><i class="bi bi-info-circle me-1"></i>{{ status.error }}</div>{% endif %}</div>
+
+    <div class="card"><div class="card-header">Installed models</div><div class="card-body">
+      {% for m in status.installed_models %}<span class="chip {{ 'match' if m == status.model or m == status.model ~ ':latest' else 'kw' }}">{{ m }}</span>
+      {% else %}<p class="small-muted mb-0">{{ 'No models installed.' if status.reachable else 'Cannot list models while the server is unreachable.' }}</p>{% endfor %}
+    </div></div>
+
+    <div class="card"><div class="card-header">Troubleshooting</div><div class="card-body small">
+      <ol class="mb-0 ps-3">
+        <li>Start Ollama (Windows: open the Ollama app, or run <code>ollama serve</code>).</li>
+        <li>Download the model: <code>ollama pull {{ status.model }}</code></li>
+        <li>Check it responds: <code>curl {{ status.base_url }}/api/tags</code></li>
+        <li>On Render, <code>127.0.0.1</code> is the Render container, not your PC — set <code>OLLAMA_BASE_URL</code> to a separately hosted, authenticated Ollama endpoint (see README).</li>
+      </ol>
+    </div></div>
+  </div>
+  <div class="col-xl-4 d-grid gap-3 align-content-start">
+    <div class="card"><div class="card-header">Model configuration</div><div class="card-body">
+      {% if can_configure %}
+      <form method="post" action="{{ url_for('admin.ai_model') }}">{{ ui.csrf() }}
+        <label class="form-label small" for="model">Model override</label>
+        <input class="form-control form-control-sm mb-1" id="model" name="ollama_model_override" value="{{ override }}" maxlength="100" pattern="[A-Za-z0-9._:/\-]*" placeholder="Leave blank to use OLLAMA_MODEL" {% if status.installed_models %}list="installed-models"{% endif %}>
+        <datalist id="installed-models">{% for m in status.installed_models %}<option value="{{ m }}">{% endfor %}</datalist>
+        <div class="form-text mb-2">e.g. <code>qwen2.5:7b</code> or an installed <code>deepseek-r1:7b</code>. Takes effect immediately.</div>
+        <button class="btn btn-sm btn-primary w-100" type="submit" data-loading>Save</button>
+      </form>
+      {% else %}<p class="small mb-0">Active model: <code>{{ status.model }}</code>. Only a Super Admin can change it.</p>{% endif %}
+    </div></div>
+    <div class="card"><div class="card-body small">
+      <h2 class="h6 fw-bold">How AI is used</h2>
+      <ul class="ps-3 mb-0"><li>Suggestions only — people make every hiring decision.</li><li>Contact details are stripped from resume text before prompting.</li><li>Outputs are schema-validated; malformed responses are rejected.</li><li>Resume text is never logged.</li></ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

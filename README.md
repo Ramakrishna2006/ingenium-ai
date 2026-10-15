@@ -1,4 +1,27 @@
-﻿# Ingenium AI
+<p align="center">
+  <img src="frontend/static/images/logo.svg" alt="Ingenium AI logo" width="96" height="96">
+</p>
+
+<h1 align="center">Ingenium AI</h1>
+
+<p align="center">
+  <b>Hire with evidence. Onboard with confidence.</b><br>
+  Recruitment, onboarding and employee management with explainable matching and a private, local AI assistant.
+</p>
+
+<p align="center">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white">
+  <img alt="Flask" src="https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white">
+  <img alt="scikit-learn" src="https://img.shields.io/badge/scikit--learn-ML-F7931E?logo=scikitlearn&logoColor=white">
+  <img alt="Ollama" src="https://img.shields.io/badge/Ollama-qwen2.5%3A7b-111111">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-68%20passing-2EA44F">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Ingenium AI home page" width="900">
+</p>
 
 An AI-assisted recruitment, employee-management and onboarding platform built with Flask, PostgreSQL,
 scikit-learn and a local Ollama model. It covers the whole lifecycle: workforce planning → vacancies →
@@ -11,6 +34,7 @@ pre-boarding, onboarding, training and probation, plus analytics.
 ---
 
 ## Contents
+- [Screenshots](#screenshots)
 1. [Features](#1-features)
 2. [Architecture](#2-architecture)
 3. [Project structure: backend and frontend](#3-project-structure-backend-and-frontend)
@@ -29,6 +53,22 @@ pre-boarding, onboarding, training and probation, plus analytics.
 **Project overview, hiring flow and GitHub upload:** see [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md).
 
 Further docs: [`docs/API.md`](docs/API.md) (REST API) · [`docs/SECURITY.md`](docs/SECURITY.md) (security, privacy, retention).
+
+---
+
+## Screenshots
+
+All screenshots use fictional demo people and data. (The header shows *AI: disabled* because they were taken
+without Ollama running; with Ollama it shows the model name, e.g. *AI: qwen2.5:7b*.)
+
+| | |
+|---|---|
+| **Apply for a job** (public page for job seekers)<br><img src="docs/screenshots/apply-for-a-job.png" alt="Apply for a job" width="440"> | **HR dashboard** (Chandu, HR Manager)<br><img src="docs/screenshots/hr-dashboard.png" alt="HR dashboard" width="440"> |
+| **Recruitment pipeline** (Susmita, Recruiter)<br><img src="docs/screenshots/pipeline.png" alt="Recruitment pipeline" width="440"> | **Explainable screening** with skill evidence from the resume<br><img src="docs/screenshots/screening.png" alt="Screening evidence" width="440"> |
+| **Interview scorecard** (Sai, Interviewer)<br><img src="docs/screenshots/interview-scorecard.png" alt="Interview scorecard" width="440"> | **Offer** approved and accepted, with PDF letter<br><img src="docs/screenshots/offer.png" alt="Offer" width="440"> |
+| **Employee onboarding portal** (Anjali, new employee)<br><img src="docs/screenshots/employee-onboarding.png" alt="Employee onboarding portal" width="440"> | **Employee profile and onboarding tasks** (HR view)<br><img src="docs/screenshots/employee-profile.png" alt="Employee profile" width="440"> |
+| **Job clusters** (TF-IDF + K-Means)<br><img src="docs/screenshots/job-clusters.png" alt="Job clusters" width="440"> | **Candidate dashboard** (Meera, job seeker)<br><img src="docs/screenshots/candidate-dashboard.png" alt="Candidate dashboard" width="440"> |
+| **Users and roles** (Ramakrishna, Super Admin)<br><img src="docs/screenshots/admin-users.png" alt="Users and roles" width="440"> | |
 
 ---
 
@@ -213,7 +253,7 @@ container database starts empty (see *Copy your existing data into Docker* below
 
 **1. Install Docker Desktop.** In PowerShell **run as administrator**:
 ```powershell
-wsl --install                                  # enables WSL 2 and Virtual Machine Platform
+wsl --install --no-distribution                # enables WSL 2 only; Docker does not need Ubuntu
 winget install -e --id Docker.DockerDesktop
 ```
 **Restart Windows** (required: the features above only take effect after a reboot, and PowerShell windows
@@ -416,6 +456,7 @@ document contents are never logged.
 | `Could not locate a Flask application` / `No module named app` | Run commands from the project root with `--app backend/run.py`; ensure the venv is active. In PyCharm mark `backend` as Sources Root. |
 | `TemplateNotFound` or pages without styling | The `frontend/` folder is missing or was not copied next to `backend/`. |
 | `docker` is not recognized | Docker Desktop was just installed: restart Windows, start Docker Desktop, and use a new PowerShell window. |
+| `wsl --install` starts downloading Ubuntu | Not needed for Docker: press Ctrl+C. Use `wsl --install --no-distribution`. To remove an installed Ubuntu: `wsl --unregister Ubuntu`. |
 | Docker Desktop: *Virtual Machine Platform is not enabled* | Restart Windows after `wsl --install`. If it persists, in admin PowerShell run `Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All` and `wsl --update`, then restart. Also check *Task Manager → Performance → CPU → Virtualization: Enabled*; if disabled, turn on Intel VT-x / AMD SVM in the BIOS. |
 | Docker: `required variable … is missing a value` | Add `POSTGRES_PASSWORD` and `SECRET_KEY` to `.env` in the project root. |
 | Docker: `web` keeps restarting | `docker compose logs web`; usually a weak `SECRET_KEY` or the database password changed after the first start (run `docker compose down -v` to reset the container database). |
